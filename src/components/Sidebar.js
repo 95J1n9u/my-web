@@ -4,7 +4,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     {
       id: 'dashboard',
-      name: 'Dashboard',
+      name: '대시보드',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -16,7 +16,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     },
     {
       id: 'upload',
-      name: 'File Upload',
+      name: '파일 업로드',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -26,7 +26,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     },
     {
       id: 'results',
-      name: 'Analysis Results',
+      name: '분석 결과',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -47,8 +47,8 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">NetSecure</h1>
-            <p className="text-gray-400 text-sm">Vulnerability Scanner</p>
+            <h1 className="text-xl font-bold text-white">넷시큐어</h1>
+            <p className="text-gray-400 text-sm">취약점 스캐너</p>
           </div>
         </div>
       </div>
@@ -74,11 +74,11 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
         <div className="bg-gray-800 rounded-lg p-4">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">A</span>
+              <span className="text-white text-sm font-medium">관</span>
             </div>
             <div>
-              <p className="text-white text-sm font-medium">Admin User</p>
-              <p className="text-gray-400 text-xs">Security Analyst</p>
+              <p className="text-white text-sm font-medium">관리자</p>
+              <p className="text-gray-400 text-xs">보안 분석가</p>
             </div>
           </div>
         </div>
