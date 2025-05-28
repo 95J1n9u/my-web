@@ -1,12 +1,45 @@
 import React from 'react';
+import analysisService from '../services/analysisService';
 
-const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavigateToResults }) => {
+const Dashboard = ({ 
+  analysisResults, 
+  comparisonResults, 
+  serviceStatus, 
+  selectedFramework, 
+  frameworks, 
+  engineInfo,
+  onNavigateToUpload, 
+  onNavigateToResults 
+}) => {
   // 실제 분석 결과가 있으면 해당 데이터 사용, 없으면 기본값 사용
+  const hasResults = analysisResults || comparisonResults;
+  const getFrameworkInfo = (frameworkId) => analysisService.getFrameworkInfo(frameworkId);
+
+  // 비교 분석 결과 요약
+  const getComparisonSummary = () => {
+    if (!comparisonResults) return null;
+    
+    const successfulResults = Object.values(comparisonResults.frameworks)
+      .filter(result => !result.error);
+    
+    return {
+      totalFrameworks: Object.keys(comparisonResults.frameworks).length,
+      successfulAnalyses: successfulResults.length,
+      totalIssues: successfulResults.reduce((sum, result) => sum + (result.summary?.vulnerabilities || 0), 0),
+      averageScore: successfulResults.length > 0 
+        ? Math.round(successfulResults.reduce((sum, result) => 
+            sum + ((result.summary?.passed || 0) / (result.summary?.totalChecks || 1) * 100), 0) / successfulResults.length)
+        : 0
+    };
+  };
+
+  const comparisonSummary = getComparisonSummary();
+
   const stats = [
     {
       title: '총 스캔 수',
-      value: analysisResults ? '1' : '0',
-      change: analysisResults ? 'New!' : '+0%',
+      value: hasResults ? '1' : '0',
+      change: hasResults ? 'New!' : '+0%',
       changeType: 'neutral',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -18,9 +51,17 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
     },
     {
       title: '고위험 취약점',
-      value: analysisResults ? (analysisResults.summary.highSeverity || 0).toString() : '0',
-      change: analysisResults ? 'New!' : '0%',
-      changeType: analysisResults && analysisResults.summary.highSeverity > 0 ? 'increase' : 'neutral',
+      value: comparisonSummary 
+        ? Object.values(comparisonResults.frameworks)
+            .filter(r => !r.error)
+            .reduce((sum, r) => sum + (r.summary?.highSeverity || 0), 0).toString()
+        : analysisResults 
+          ? (analysisResults.summary.highSeverity || 0).toString() 
+          : '0',
+      change: hasResults ? 'New!' : '0%',
+      changeType: hasResults && (comparisonSummary ? 
+        Object.values(comparisonResults.frameworks).some(r => !r.error && r.summary?.highSeverity > 0) :
+        analysisResults?.summary.highSeverity > 0) ? 'increase' : 'neutral',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -31,9 +72,17 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
     },
     {
       title: '중위험 취약점',
-      value: analysisResults ? (analysisResults.summary.mediumSeverity || 0).toString() : '0',
-      change: analysisResults ? 'New!' : '0%',
-      changeType: analysisResults && analysisResults.summary.mediumSeverity > 0 ? 'increase' : 'neutral',
+      value: comparisonSummary 
+        ? Object.values(comparisonResults.frameworks)
+            .filter(r => !r.error)
+            .reduce((sum, r) => sum + (r.summary?.mediumSeverity || 0), 0).toString()
+        : analysisResults 
+          ? (analysisResults.summary.mediumSeverity || 0).toString() 
+          : '0',
+      change: hasResults ? 'New!' : '0%',
+      changeType: hasResults && (comparisonSummary ? 
+        Object.values(comparisonResults.frameworks).some(r => !r.error && r.summary?.mediumSeverity > 0) :
+        analysisResults?.summary.mediumSeverity > 0) ? 'increase' : 'neutral',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -44,9 +93,17 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
     },
     {
       title: '통과한 항목',
-      value: analysisResults ? analysisResults.summary.passed.toString() : '0',
-      change: analysisResults ? 'New!' : '0%',
-      changeType: analysisResults && analysisResults.summary.passed > 0 ? 'increase' : 'neutral',
+      value: comparisonSummary 
+        ? Object.values(comparisonResults.frameworks)
+            .filter(r => !r.error)
+            .reduce((sum, r) => sum + (r.summary?.passed || 0), 0).toString()
+        : analysisResults 
+          ? analysisResults.summary.passed.toString() 
+          : '0',
+      change: hasResults ? 'New!' : '0%',
+      changeType: hasResults && (comparisonSummary ? 
+        Object.values(comparisonResults.frameworks).some(r => !r.error && r.summary?.passed > 0) :
+        analysisResults?.summary.passed > 0) ? 'increase' : 'neutral',
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -57,23 +114,27 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
     }
   ];
 
-  // 최근 분석 데이터 (실제 결과가 있으면 표시)
-  const recentScans = analysisResults ? [
+  // 최근 분석 데이터
+  const recentScans = hasResults ? [
     {
       id: 1,
-      device: analysisResults.metadata?.deviceType || 'Unknown Device',
-      ip: 'Uploaded Config',
-      date: new Date(analysisResults.metadata?.timestamp || Date.now()).toLocaleDateString('ko-KR'),
+      device: analysisResults?.metadata?.deviceType || 'Multiple Devices',
+      framework: comparisonSummary ? `${comparisonSummary.totalFrameworks}개 지침서` : 
+                (analysisResults?.metadata?.framework || selectedFramework),
+      date: new Date(analysisResults?.metadata?.timestamp || comparisonResults?.metadata?.timestamp || Date.now()).toLocaleDateString('ko-KR'),
       status: '완료',
-      issues: analysisResults.summary?.vulnerabilities || 0,
-      severity: analysisResults.summary?.highSeverity > 0 ? '고위험' : 
-                analysisResults.summary?.mediumSeverity > 0 ? '중위험' : '저위험'
+      issues: comparisonSummary ? comparisonSummary.totalIssues : (analysisResults?.summary?.vulnerabilities || 0),
+      severity: comparisonSummary || analysisResults?.summary ? 
+        (comparisonSummary ? 
+          (comparisonSummary.totalIssues > 0 ? '다중 지침서' : '안전') :
+          (analysisResults.summary.highSeverity > 0 ? '고위험' : 
+           analysisResults.summary.mediumSeverity > 0 ? '중위험' : '저위험')) : 'N/A'
     }
   ] : [
     {
       id: 1,
       device: '분석 대기 중',
-      ip: '-',
+      framework: '-',
       date: '-',
       status: '대기',
       issues: 0,
@@ -82,6 +143,9 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
   ];
 
   const getSecurityScore = () => {
+    if (comparisonSummary) {
+      return comparisonSummary.averageScore;
+    }
     if (!analysisResults) return 0;
     const { totalChecks, vulnerabilities } = analysisResults.summary;
     if (totalChecks === 0) return 0;
@@ -93,7 +157,14 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
       {/* Page Title */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">대시보드</h1>
-        <p className="text-gray-600">KISA 네트워크 보안 분석 현황 개요</p>
+        <p className="text-gray-600">
+          다중 보안 지침서 기반 네트워크 보안 분석 현황 개요
+          {engineInfo && (
+            <span className="text-sm text-gray-500 ml-2">
+              (Engine: {engineInfo.engineVersion})
+            </span>
+          )}
+        </p>
       </div>
 
       {/* Service Status Alert */}
@@ -108,6 +179,55 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
               <p className="text-sm font-medium text-red-900">서비스 연결 오류</p>
               <p className="text-sm text-red-700">분석 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Framework Status */}
+      {engineInfo && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">지원 보안 지침서 현황</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{engineInfo.supportedFrameworks?.length || 0}</div>
+              <div className="text-sm text-gray-600">지원 지침서</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{engineInfo.implementedFrameworks?.length || 0}</div>
+              <div className="text-sm text-gray-600">구현 완료</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">
+                {(engineInfo.supportedFrameworks?.length || 0) - (engineInfo.implementedFrameworks?.length || 0)}
+              </div>
+              <div className="text-sm text-gray-600">구현 예정</div>
+            </div>
+          </div>
+          
+          <div className="mt-4 flex flex-wrap gap-2">
+            {engineInfo.supportedFrameworks?.map((frameworkId) => {
+              const isImplemented = engineInfo.implementedFrameworks?.includes(frameworkId);
+              const info = getFrameworkInfo(frameworkId);
+              return (
+                <span 
+                  key={frameworkId}
+                  className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${
+                    isImplemented 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}
+                >
+                  {info && (
+                    <span 
+                      className="w-2 h-2 rounded-full mr-2"
+                      style={{ backgroundColor: info.color }}
+                    />
+                  )}
+                  {frameworkId}
+                  {!isImplemented && ' (예정)'}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -128,7 +248,7 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
                     {stat.change}
                   </span>
                   <span className="text-sm text-gray-500 ml-1">
-                    {analysisResults ? '최근 분석' : '분석 대기'}
+                    {hasResults ? '최근 분석' : '분석 대기'}
                   </span>
                 </div>
               </div>
@@ -141,23 +261,40 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
       </div>
 
       {/* Security Score and Analysis Summary */}
-      {analysisResults && (
+      {hasResults && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">보안 점수</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            {comparisonSummary ? '종합 보안 점수' : '보안 점수'}
+          </h3>
           <div className="flex items-center justify-between">
             <div>
               <div className="text-4xl font-bold text-gray-900">{getSecurityScore()}점</div>
-              <div className="text-sm text-gray-500">100점 만점</div>
+              <div className="text-sm text-gray-500">
+                {comparisonSummary ? `${comparisonSummary.totalFrameworks}개 지침서 평균` : '100점 만점'}
+              </div>
             </div>
             <div className="text-right">
-              <div className="text-sm text-gray-600">
-                총 {analysisResults.summary.totalChecks}개 항목 중
-              </div>
-              <div className="text-sm">
-                <span className="text-green-600 font-medium">{analysisResults.summary.passed}개 통과</span>
-                <span className="text-gray-400 mx-2">•</span>
-                <span className="text-red-600 font-medium">{analysisResults.summary.vulnerabilities}개 취약점</span>
-              </div>
+              {comparisonSummary ? (
+                <div>
+                  <div className="text-sm text-gray-600">
+                    {comparisonSummary.successfulAnalyses}개 지침서 분석 완료
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-red-600 font-medium">총 {comparisonSummary.totalIssues}개 취약점 발견</span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-sm text-gray-600">
+                    총 {analysisResults.summary.totalChecks}개 항목 중
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-green-600 font-medium">{analysisResults.summary.passed}개 통과</span>
+                    <span className="text-gray-400 mx-2">•</span>
+                    <span className="text-red-600 font-medium">{analysisResults.summary.vulnerabilities}개 취약점</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="mt-4 bg-gray-200 rounded-full h-2">
@@ -181,7 +318,7 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    장비
+                    장비/지침서
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     상태
@@ -197,7 +334,7 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{scan.device}</div>
-                        <div className="text-sm text-gray-500">{scan.ip}</div>
+                        <div className="text-sm text-gray-500">{scan.framework}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -220,7 +357,9 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
                               ? 'bg-red-100 text-red-800' 
                               : scan.severity === '중위험'
                                 ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-blue-100 text-blue-800'
+                                : scan.severity === '다중 지침서'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-blue-100 text-blue-800'
                           }`}>
                             {scan.severity}
                           </span>
@@ -254,7 +393,7 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
             
             <button 
               onClick={onNavigateToResults}
-              disabled={!analysisResults}
+              disabled={!hasResults}
               className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,16 +405,65 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
             
             <div className="pt-4 border-t border-gray-200">
               <div className="text-center text-sm text-gray-500">
-                <p>KISA 네트워크 보안 가이드 기반</p>
-                <p className="font-medium text-blue-600">38개 보안 룰셋 자동 검사</p>
+                <p>다중 보안 지침서 기반 분석</p>
+                <p className="font-medium text-blue-600">
+                  {frameworks.filter(f => f.isImplemented).length}개 지침서 구현 완료
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Available Frameworks */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">사용 가능한 보안 지침서</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {frameworks.map((framework) => {
+            const info = getFrameworkInfo(framework.id);
+            return (
+              <div key={framework.id} className={`p-4 rounded-lg border-2 transition-colors ${
+                framework.isImplemented 
+                  ? 'border-green-200 bg-green-50' 
+                  : 'border-yellow-200 bg-yellow-50'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    {info && (
+                      <span 
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: info.color }}
+                      />
+                    )}
+                    <span className="font-medium text-gray-900">{framework.id}</span>
+                  </div>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    framework.isImplemented 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {framework.isImplemented ? '사용 가능' : '구현 예정'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{framework.description}</p>
+                {framework.total_rules && (
+                  <p className="text-xs text-gray-500">
+                    {framework.total_rules}개 보안 룰셋
+                  </p>
+                )}
+                {info && (
+                  <p className="text-xs text-gray-500">
+                    {info.organization} • {info.country}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Analysis Guide */}
-      {!analysisResults && (
+      {!hasResults && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <div className="flex items-start space-x-3">
             <svg className="w-6 h-6 text-blue-500 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,26 +471,27 @@ const Dashboard = ({ analysisResults, serviceStatus, onNavigateToUpload, onNavig
                     d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <h4 className="text-lg font-medium text-blue-900 mb-2">분석을 시작하세요</h4>
+              <h4 className="text-lg font-medium text-blue-900 mb-2">다중 지침서 분석을 시작하세요</h4>
               <p className="text-sm text-blue-700 mb-4">
-                네트워크 장비의 설정 파일을 업로드하면 KISA 보안 가이드를 기반으로 
-                38개 항목의 보안 취약점을 자동으로 분석해드립니다.
+                다양한 보안 지침서(KISA, CIS, NIST 등)를 선택하여 네트워크 장비 설정 파일을 
+                종합적으로 분석할 수 있습니다. 단일 지침서 분석 또는 여러 지침서 비교 분석이 가능합니다.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
                 <div>
-                  <h5 className="font-medium mb-1">지원 장비:</h5>
+                  <h5 className="font-medium mb-1">지원 지침서:</h5>
                   <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>Cisco IOS/IOS-XE</li>
-                    <li>Juniper JunOS</li>
-                    <li>Radware Alteon</li>
+                    <li>KISA (한국인터넷진흥원) ✅</li>
+                    <li>CIS (Center for Internet Security) 🚧</li>
+                    <li>NIST (National Institute of Standards) 🚧</li>
                   </ul>
                 </div>
                 <div>
-                  <h5 className="font-medium mb-1">분석 항목:</h5>
+                  <h5 className="font-medium mb-1">분석 기능:</h5>
                   <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>패스워드 보안 정책</li>
-                    <li>접근 제어 설정</li>
-                    <li>로그 및 모니터링</li>
+                    <li>단일 지침서 상세 분석</li>
+                    <li>다중 지침서 비교 분석</li>
+                    <li>논리 기반 취약점 탐지</li>
+                    <li>지침서별 맞춤 권고사항</li>
                   </ul>
                 </div>
               </div>

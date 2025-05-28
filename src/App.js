@@ -11,30 +11,72 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [analysisResults, setAnalysisResults] = useState(null);
+  const [comparisonResults, setComparisonResults] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
+  const [frameworks, setFrameworks] = useState([]);
+  const [selectedFramework, setSelectedFramework] = useState('KISA');
   const [deviceTypes, setDeviceTypes] = useState([]);
   const [serviceStatus, setServiceStatus] = useState('checking');
+  const [engineInfo, setEngineInfo] = useState(null);
 
-  // 컴포넌트 마운트 시 서비스 상태 및 장비 타입 조회
+  // 컴포넌트 마운트 시 서비스 상태 및 기본 정보 로드
   useEffect(() => {
-    checkServiceHealth();
-    loadDeviceTypes();
-  }, []);
+    const initialize = async () => {
+      await checkServiceHealth();
+      await loadFrameworks();
+      await loadDeviceTypes();
+    };
+    initialize();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const checkServiceHealth = async () => {
     try {
-      await analysisService.checkHealth();
+      const response = await analysisService.checkHealth();
       setServiceStatus('online');
+      setEngineInfo({
+        version: response.version,
+        engineVersion: response.engineVersion,
+        supportedFrameworks: response.supportedFrameworks,
+        implementedFrameworks: response.implementedFrameworks,
+        features: response.features
+      });
     } catch (error) {
       console.error('Service health check failed:', error);
       setServiceStatus('offline');
     }
   };
 
-  const loadDeviceTypes = async () => {
+  const loadFrameworks = async () => {
     try {
-      const response = await analysisService.getDeviceTypes();
+      const response = await analysisService.getFrameworks();
+      if (response.success) {
+        setFrameworks(response.frameworks);
+        // 기본값으로 첫 번째 구현된 지침서 선택
+        const implementedFramework = response.frameworks.find(f => f.isImplemented);
+        if (implementedFramework) {
+          setSelectedFramework(implementedFramework.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load frameworks:', error);
+      // 기본값 설정
+      setFrameworks([
+        {
+          id: 'KISA',
+          name: 'KISA 네트워크 장비 보안 가이드',
+          description: '한국인터넷진흥원(KISA) 네트워크 장비 보안 점검 가이드라인',
+          isImplemented: true,
+          status: 'active',
+          total_rules: 38
+        }
+      ]);
+    }
+  };
+
+  const loadDeviceTypes = async (framework = 'KISA') => {
+    try {
+      const response = await analysisService.getDeviceTypes(framework);
       if (response.success) {
         setDeviceTypes(response.deviceTypes);
       }
@@ -45,7 +87,7 @@ function App() {
     }
   };
 
-  const handleFileUpload = async (file, deviceType) => {
+  const handleFileUpload = async (file, deviceType, framework, comparisonFrameworks) => {
     if (!file || !deviceType) {
       setAnalysisError('파일과 장비 타입을 모두 선택해주세요.');
       return;
@@ -55,6 +97,7 @@ function App() {
     setIsAnalyzing(true);
     setAnalysisError(null);
     setAnalysisResults(null);
+    setComparisonResults(null);
 
     try {
       // 파일을 텍스트로 변환
@@ -64,20 +107,42 @@ function App() {
         throw new Error('파일이 비어있거나 읽을 수 없습니다.');
       }
 
-      // API 호출하여 분석
-      const apiResult = await analysisService.analyzeConfig(deviceType, configText);
+      // 비교 분석 모드인 경우
+      if (comparisonFrameworks && comparisonFrameworks.length > 1) {
+        const comparisonResult = await analysisService.compareAnalysis(
+          deviceType, 
+          configText, 
+          comparisonFrameworks
+        );
+        
+        // 비교 결과를 UI 형식으로 변환
+        const transformedResults = {};
+        for (const [frameworkId, result] of Object.entries(comparisonResult.frameworks)) {
+          if (result.success) {
+            transformedResults[frameworkId] = analysisService.transformAnalysisResult(result);
+          } else {
+            transformedResults[frameworkId] = { error: result.error };
+          }
+        }
+        
+        setComparisonResults({
+          ...comparisonResult,
+          frameworks: transformedResults
+        });
+        
+      } else {
+        // 단일 지침서 분석
+        const selectedFrameworkId = framework || selectedFramework;
+        const apiResult = await analysisService.analyzeConfig(deviceType, configText, selectedFrameworkId);
+        const transformedResult = analysisService.transformAnalysisResult(apiResult);
+        setAnalysisResults(transformedResult);
+      }
       
-      // 결과를 UI 형식으로 변환
-      const transformedResult = analysisService.transformAnalysisResult(apiResult);
-      
-      setAnalysisResults(transformedResult);
       setActiveTab('results');
       
     } catch (error) {
       console.error('Analysis failed:', error);
       setAnalysisError(error.message);
-      
-      // 에러 발생 시에도 결과 탭으로 이동하여 에러 메시지 표시
       setActiveTab('results');
     } finally {
       setIsAnalyzing(false);
@@ -86,8 +151,6 @@ function App() {
 
   const handleRetryAnalysis = () => {
     if (uploadedFile) {
-      // 이전에 선택된 장비 타입을 가져오기 위해 상태로 관리해야 함
-      // 현재는 다시 업로드하도록 안내
       setActiveTab('upload');
       setAnalysisError(null);
     }
@@ -96,9 +159,26 @@ function App() {
   const resetAnalysis = () => {
     setUploadedFile(null);
     setAnalysisResults(null);
+    setComparisonResults(null);
     setAnalysisError(null);
     setIsAnalyzing(false);
     setActiveTab('upload');
+  };
+
+  const handleFrameworkChange = (frameworkId) => {
+    setSelectedFramework(frameworkId);
+    loadDeviceTypes(frameworkId); // 선택된 지침서에 따라 장비 타입 목록 업데이트
+  };
+
+  // 현재 표시할 결과 결정 (단일 분석 또는 비교 분석)
+  const getCurrentResults = () => {
+    if (comparisonResults) {
+      // 비교 분석 결과에서 첫 번째 성공한 결과를 기본으로 표시
+      const firstSuccessfulResult = Object.values(comparisonResults.frameworks)
+        .find(result => !result.error);
+      return firstSuccessfulResult || null;
+    }
+    return analysisResults;
   };
 
   return (
@@ -107,14 +187,25 @@ function App() {
         activeTab={activeTab} 
         setActiveTab={setActiveTab}
         serviceStatus={serviceStatus}
+        engineInfo={engineInfo}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header serviceStatus={serviceStatus} />
+        <Header 
+          serviceStatus={serviceStatus}
+          selectedFramework={selectedFramework}
+          frameworks={frameworks}
+          onFrameworkChange={handleFrameworkChange}
+          engineInfo={engineInfo}
+        />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
           {activeTab === 'dashboard' && (
             <Dashboard 
-              analysisResults={analysisResults}
+              analysisResults={getCurrentResults()}
+              comparisonResults={comparisonResults}
               serviceStatus={serviceStatus}
+              selectedFramework={selectedFramework}
+              frameworks={frameworks}
+              engineInfo={engineInfo}
               onNavigateToUpload={() => setActiveTab('upload')}
               onNavigateToResults={() => setActiveTab('results')}
             />
@@ -124,16 +215,21 @@ function App() {
               onFileUpload={handleFileUpload}
               uploadedFile={uploadedFile}
               isAnalyzing={isAnalyzing}
+              frameworks={frameworks}
               deviceTypes={deviceTypes}
+              selectedFramework={selectedFramework}
               analysisError={analysisError}
               onReset={resetAnalysis}
             />
           )}
           {activeTab === 'results' && (
             <VulnerabilityResults 
-              results={analysisResults}
+              results={getCurrentResults()}
+              comparisonResults={comparisonResults}
               isAnalyzing={isAnalyzing}
               error={analysisError}
+              selectedFramework={selectedFramework}
+              frameworks={frameworks}
               onRetry={handleRetryAnalysis}
               onReset={resetAnalysis}
             />
