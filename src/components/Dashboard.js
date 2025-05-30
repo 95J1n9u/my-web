@@ -224,6 +224,7 @@ const Dashboard = ({
                     />
                   )}
                   {frameworkId}
+                  {info?.totalRules && ` (${info.totalRules}룰)`}
                   {!isImplemented && ' (예정)'}
                 </span>
               );
@@ -409,6 +410,11 @@ const Dashboard = ({
                 <p className="font-medium text-blue-600">
                   {frameworks.filter(f => f.isImplemented).length}개 지침서 구현 완료
                 </p>
+                <div className="mt-2 text-xs text-gray-400">
+                  KISA ({getFrameworkInfo('KISA')?.totalRules}룰) • 
+                  CIS ({getFrameworkInfo('CIS')?.totalRules}룰) • 
+                  NW ({getFrameworkInfo('NW')?.totalRules}룰)
+                </div>
               </div>
             </div>
           </div>
@@ -456,9 +462,86 @@ const Dashboard = ({
                     {info.organization} • {info.country}
                   </p>
                 )}
+                
+                {/* Framework specific features */}
+                {framework.id === 'KISA' && (
+                  <div className="mt-2 text-xs text-blue-600">
+                    ✓ 종합 보안 분석 • AAA 포함
+                  </div>
+                )}
+                {framework.id === 'CIS' && (
+                  <div className="mt-2 text-xs text-orange-600">
+                    ✓ 인증/권한 중심 • 글로벌 표준
+                  </div>
+                )}
+                {framework.id === 'NW' && (
+                  <div className="mt-2 text-xs text-green-600">
+                    ✓ 물리 보안 강화 • 최다 룰셋
+                  </div>
+                )}
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Framework Comparison Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">지침서별 비교</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지침서</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총 룰</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상급</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">중급</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">하급</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">특징</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              <tr>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 mr-2"></span>
+                    <span className="text-sm font-medium text-gray-900">KISA</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">38개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">14개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">19개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">5개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">한국 표준, 종합적</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 rounded-full bg-orange-500 mr-2"></span>
+                    <span className="text-sm font-medium text-gray-900">CIS</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">11개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">6개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">5개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">0개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">AAA 중심, 상세함</td>
+              </tr>
+              <tr>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                    <span className="text-sm font-medium text-gray-900">NW</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">42개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">8개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">30개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">4개</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">물리보안 강화</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -473,16 +556,17 @@ const Dashboard = ({
             <div>
               <h4 className="text-lg font-medium text-blue-900 mb-2">다중 지침서 분석을 시작하세요</h4>
               <p className="text-sm text-blue-700 mb-4">
-                다양한 보안 지침서(KISA, CIS, NIST 등)를 선택하여 네트워크 장비 설정 파일을 
+                다양한 보안 지침서(KISA, CIS, NW 등)를 선택하여 네트워크 장비 설정 파일을 
                 종합적으로 분석할 수 있습니다. 단일 지침서 분석 또는 여러 지침서 비교 분석이 가능합니다.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
                 <div>
                   <h5 className="font-medium mb-1">지원 지침서:</h5>
                   <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>KISA (한국인터넷진흥원) ✅</li>
-                    <li>CIS (Center for Internet Security) 🚧</li>
-                    <li>NIST (National Institute of Standards) 🚧</li>
+                    <li>KISA (한국인터넷진흥원) ✅ 38룰</li>
+                    <li>CIS (Center for Internet Security) ✅ 11룰</li>
+                    <li>NW (네트워크 보안 지침서) ✅ 42룰</li>
+                    <li>NIST (National Institute of Standards) 🚧 계획중</li>
                   </ul>
                 </div>
                 <div>
@@ -492,6 +576,7 @@ const Dashboard = ({
                     <li>다중 지침서 비교 분석</li>
                     <li>논리 기반 취약점 탐지</li>
                     <li>지침서별 맞춤 권고사항</li>
+                    <li>10개 브랜드 장비 지원</li>
                   </ul>
                 </div>
               </div>

@@ -59,6 +59,17 @@ const Header = ({
       });
     }
 
+    // 새로운 기능 알림 (NW 지침서 추가)
+    if (frameworks.some(f => f.id === 'NW' && f.isImplemented)) {
+      notifications.push({
+        id: 'nw-framework-added',
+        type: 'success',
+        title: 'NW 지침서 추가됨',
+        message: 'NW 네트워크 보안 지침서가 새롭게 추가되어 42개의 추가 룰을 사용할 수 있습니다.',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     return notifications;
   };
 
@@ -86,6 +97,11 @@ const Header = ({
               <span className="text-sm font-medium text-gray-700">
                 {selectedFramework}
               </span>
+              {currentFramework?.total_rules && (
+                <span className="text-xs text-gray-500">
+                  ({currentFramework.total_rules}룰)
+                </span>
+              )}
               <svg 
                 className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
                   showFrameworkDropdown ? 'rotate-180' : ''
@@ -100,7 +116,7 @@ const Header = ({
 
             {/* Framework Dropdown */}
             {showFrameworkDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+              <div className="absolute top-full left-0 mt-1 w-96 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                 <div className="p-2">
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 mb-2">
                     보안 지침서 선택
@@ -116,7 +132,7 @@ const Header = ({
                           }
                           setShowFrameworkDropdown(false);
                         }}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors duration-200 ${
+                        className={`w-full flex items-center space-x-3 px-3 py-3 text-left rounded-lg transition-colors duration-200 ${
                           selectedFramework === framework.id
                             ? 'bg-blue-50 text-blue-700'
                             : framework.isImplemented
@@ -132,20 +148,37 @@ const Header = ({
                           />
                         )}
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium">{framework.id}</span>
-                            {!framework.isImplemented && (
-                              <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                                구현 예정
-                              </span>
-                            )}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium">{framework.id}</span>
+                              {framework.total_rules && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                                  {framework.total_rules}룰
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {!framework.isImplemented && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                                  구현 예정
+                                </span>
+                              )}
+                              {framework.id === 'NW' && framework.isImplemented && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                  NEW
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
                             {framework.description}
                           </div>
-                          {framework.total_rules && (
+                          {info && (
                             <div className="text-xs text-gray-400 mt-1">
-                              {framework.total_rules}개 보안 룰셋
+                              {info.organization} • {info.country}
+                              {framework.id === 'KISA' && ' • 종합 보안'}
+                              {framework.id === 'CIS' && ' • AAA 중심'}
+                              {framework.id === 'NW' && ' • 물리 보안'}
                             </div>
                           )}
                         </div>
@@ -159,6 +192,30 @@ const Header = ({
                   })}
                 </div>
                 
+                {/* Framework Statistics */}
+                <div className="border-t border-gray-200 p-3 bg-gray-50">
+                  <div className="grid grid-cols-3 gap-4 text-xs">
+                    <div className="text-center">
+                      <div className="font-medium text-gray-900">총 룰 수</div>
+                      <div className="text-blue-600">
+                        {frameworks.filter(f => f.isImplemented).reduce((sum, f) => sum + (f.total_rules || 0), 0)}개
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-medium text-gray-900">지원 지침서</div>
+                      <div className="text-green-600">
+                        {frameworks.filter(f => f.isImplemented).length}개
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-medium text-gray-900">최대 장비 룰</div>
+                      <div className="text-purple-600">
+                        91개 (Cisco)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Engine Info */}
                 {engineInfo && (
                   <div className="border-t border-gray-200 p-3 bg-gray-50">
@@ -184,7 +241,7 @@ const Header = ({
           <div className="relative">
             <input
               type="text"
-              placeholder="검색..."
+              placeholder="룰 검색..."
               className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -233,7 +290,8 @@ const Header = ({
                         <div key={notification.id} className="flex space-x-3">
                           <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 ${
                             notification.type === 'error' ? 'bg-red-500' : 
-                            notification.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+                            notification.type === 'warning' ? 'bg-yellow-500' : 
+                            notification.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
                           }`}></div>
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">{notification.title}</p>
@@ -301,6 +359,8 @@ const Header = ({
               <span>지원 지침서: {engineInfo.supportedFrameworks?.length || 0}개</span>
               <span>•</span>
               <span>구현 완료: {engineInfo.implementedFrameworks?.length || 0}개</span>
+              <span>•</span>
+              <span>총 룰 수: {frameworks.filter(f => f.isImplemented).reduce((sum, f) => sum + (f.total_rules || 0), 0)}개</span>
             </div>
             <div className="flex items-center space-x-2">
               {engineInfo.features?.multiFrameworkSupport && (
@@ -316,6 +376,11 @@ const Header = ({
               {engineInfo.features?.logicalAnalysis && (
                 <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
                   논리 분석
+                </span>
+              )}
+              {frameworks.some(f => f.id === 'NW' && f.isImplemented) && (
+                <span className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                  NW 지침서 추가
                 </span>
               )}
             </div>

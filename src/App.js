@@ -39,7 +39,8 @@ function App() {
         engineVersion: response.engineVersion,
         supportedFrameworks: response.supportedFrameworks,
         implementedFrameworks: response.implementedFrameworks,
-        features: response.features
+        features: response.features,
+        frameworkDetails: response.frameworkDetails
       });
     } catch (error) {
       console.error('Service health check failed:', error);
@@ -68,7 +69,35 @@ function App() {
           description: '한국인터넷진흥원(KISA) 네트워크 장비 보안 점검 가이드라인',
           isImplemented: true,
           status: 'active',
-          total_rules: 38
+          total_rules: 38,
+          version: '2024'
+        },
+        {
+          id: 'CIS',
+          name: 'CIS Controls',
+          description: 'Center for Internet Security Controls',
+          isImplemented: true,
+          status: 'active',
+          total_rules: 11,
+          version: 'v8'
+        },
+        {
+          id: 'NW',
+          name: 'NW 네트워크 보안 지침서',
+          description: '네트워크 보안 강화 지침서',
+          isImplemented: true,
+          status: 'active',
+          total_rules: 42,
+          version: '2024'
+        },
+        {
+          id: 'NIST',
+          name: 'NIST Cybersecurity Framework',
+          description: 'National Institute of Standards and Technology Cybersecurity Framework',
+          isImplemented: false,
+          status: 'planned',
+          total_rules: 0,
+          version: '2.0'
         }
       ]);
     }
@@ -82,8 +111,12 @@ function App() {
       }
     } catch (error) {
       console.error('Failed to load device types:', error);
-      // 기본값 설정
-      setDeviceTypes(['Cisco', 'Juniper', 'Radware', 'Passport', 'Piolink']);
+      // 기본값 설정 - 새로운 API 명세서에 따른 확장된 장비 타입
+      setDeviceTypes([
+        'Cisco', 'Juniper', 'HP', 'Piolink', 
+        'Radware', 'Passport', 'Alteon', 
+        'Dasan', 'Alcatel', 'Extreme'
+      ]);
     }
   };
 
@@ -109,6 +142,8 @@ function App() {
 
       // 비교 분석 모드인 경우
       if (comparisonFrameworks && comparisonFrameworks.length > 1) {
+        console.log('Starting comparison analysis with frameworks:', comparisonFrameworks);
+        
         const comparisonResult = await analysisService.compareAnalysis(
           deviceType, 
           configText, 
@@ -133,6 +168,8 @@ function App() {
       } else {
         // 단일 지침서 분석
         const selectedFrameworkId = framework || selectedFramework;
+        console.log('Starting single framework analysis with:', selectedFrameworkId);
+        
         const apiResult = await analysisService.analyzeConfig(deviceType, configText, selectedFrameworkId);
         const transformedResult = analysisService.transformAnalysisResult(apiResult);
         setAnalysisResults(transformedResult);
@@ -181,13 +218,32 @@ function App() {
     return analysisResults;
   };
 
+  // 지침서별 통계 정보 계산
+  const getFrameworkStats = () => {
+    const implementedFrameworks = frameworks.filter(f => f.isImplemented);
+    return {
+      total: frameworks.length,
+      implemented: implementedFrameworks.length,
+      totalRules: implementedFrameworks.reduce((sum, f) => sum + (f.total_rules || 0), 0),
+      byFramework: implementedFrameworks.reduce((acc, f) => {
+        acc[f.id] = f.total_rules || 0;
+        return acc;
+      }, {})
+    };
+  };
+
+  const frameworkStats = getFrameworkStats();
+
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab}
         serviceStatus={serviceStatus}
-        engineInfo={engineInfo}
+        engineInfo={{
+          ...engineInfo,
+          frameworkStats
+        }}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header 
@@ -205,7 +261,10 @@ function App() {
               serviceStatus={serviceStatus}
               selectedFramework={selectedFramework}
               frameworks={frameworks}
-              engineInfo={engineInfo}
+              engineInfo={{
+                ...engineInfo,
+                frameworkStats
+              }}
               onNavigateToUpload={() => setActiveTab('upload')}
               onNavigateToResults={() => setActiveTab('results')}
             />
@@ -236,6 +295,67 @@ function App() {
           )}
         </main>
       </div>
+
+      {/* Global Status Indicators */}
+      {serviceStatus === 'checking' && (
+        <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border border-gray-200">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span className="text-sm text-gray-600">서비스 연결 확인 중...</span>
+          </div>
+        </div>
+      )}
+
+      {serviceStatus === 'offline' && (
+        <div className="fixed bottom-4 right-4 bg-red-50 rounded-lg shadow-lg p-4 border border-red-200">
+          <div className="flex items-center space-x-2">
+            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span className="text-sm text-red-800">서비스 연결 실패</span>
+          </div>
+        </div>
+      )}
+
+      {/* New Framework Notification */}
+      {frameworks.some(f => f.id === 'NW' && f.isImplemented) && (
+        <div className="fixed bottom-4 left-4 bg-green-50 rounded-lg shadow-lg p-4 border border-green-200 max-w-sm">
+          <div className="flex items-start space-x-2">
+            <svg className="w-5 h-5 text-green-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <div className="text-sm font-medium text-green-800">NW 지침서 추가됨</div>
+              <div className="text-xs text-green-600 mt-1">
+                42개의 새로운 보안 룰이 추가되어 더욱 강화된 분석이 가능합니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Analysis Progress Overlay */}
+      {isAnalyzing && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">분석 진행 중</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {comparisonResults ? '다중 지침서로 분석 중입니다' : `${selectedFramework} 지침서로 분석 중입니다`}
+              </p>
+              <div className="text-xs text-gray-500">
+                {selectedFramework === 'KISA' && '38개 룰 검사 중...'}
+                {selectedFramework === 'CIS' && '11개 룰 검사 중...'}
+                {selectedFramework === 'NW' && '42개 룰 검사 중...'}
+                {comparisonResults && `${frameworks.filter(f => f.isImplemented).length}개 지침서 비교 분석 중...`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

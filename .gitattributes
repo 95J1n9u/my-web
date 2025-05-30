@@ -1,0 +1,8 @@
+# 텍스트 파일은 기본적으로 LF 줄바꿈을 사용
+* text=auto eol=lf
+
+# 셸 스크립트는 LF 강제
+*.sh text eol=lf
+
+# JSON 파일도 LF 사용
+*.json text eol=lf

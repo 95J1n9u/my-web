@@ -11,7 +11,7 @@ class AnalysisService {
     }
   }
 
-  // 지원되는 보안 지침서 목록 조회 (NEW)
+  // 지원되는 보안 지침서 목록 조회
   async getFrameworks() {
     try {
       const response = await fetch(`${API_BASE_URL}/frameworks`);
@@ -24,7 +24,7 @@ class AnalysisService {
     }
   }
 
-  // 특정 지침서의 룰 목록 조회 (NEW)
+  // 특정 지침서의 룰 목록 조회
   async getFrameworkRules(frameworkId, options = {}) {
     try {
       const queryParams = new URLSearchParams();
@@ -43,7 +43,7 @@ class AnalysisService {
     }
   }
 
-  // 지원 장비 타입 조회 (업데이트: framework 파라미터 추가)
+  // 지원 장비 타입 조회
   async getDeviceTypes(framework = 'KISA') {
     try {
       const response = await fetch(`${API_BASE_URL}/device-types?framework=${framework}`);
@@ -56,7 +56,7 @@ class AnalysisService {
     }
   }
 
-  // 룰 목록 조회 (업데이트: framework 파라미터 추가)
+  // 룰 목록 조회
   async getRules(framework = 'KISA', options = {}) {
     try {
       const queryParams = new URLSearchParams();
@@ -75,7 +75,7 @@ class AnalysisService {
     }
   }
 
-  // 특정 룰 상세 정보 조회 (NEW)
+  // 특정 룰 상세 정보 조회
   async getRuleDetail(ruleId, framework = 'KISA', includeExamples = true) {
     try {
       const queryParams = new URLSearchParams();
@@ -92,7 +92,7 @@ class AnalysisService {
     }
   }
 
-  // 설정 파일 분석 (업데이트: framework 파라미터 추가)
+  // 설정 파일 분석
   async analyzeConfig(deviceType, configText, framework = 'KISA', options = {}) {
     try {
       const requestBody = {
@@ -140,10 +140,38 @@ class AnalysisService {
     }
   }
 
-  // 다중 지침서 비교 분석 (NEW - 향후 구현)
-  async compareAnalysis(deviceType, configText, frameworks = ['KISA', 'CIS'], options = {}) {
+  // 단일 라인 분석
+  async analyzeLine(line, deviceType, framework = 'KISA', ruleIds = null) {
     try {
-      // 현재는 순차적으로 각 지침서 분석 후 결과 병합
+      const requestBody = {
+        line,
+        deviceType,
+        framework,
+        ...(ruleIds && { ruleIds })
+      };
+
+      const response = await fetch(`${API_BASE_URL}/analyze-line`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw new Error('라인 분석에 실패했습니다: ' + error.message);
+    }
+  }
+
+  // 다중 지침서 비교 분석
+  async compareAnalysis(deviceType, configText, frameworks = ['KISA', 'CIS', 'NW'], options = {}) {
+    try {
+      // 순차적으로 각 지침서 분석 후 결과 병합
       const results = {};
       for (const framework of frameworks) {
         try {
@@ -191,7 +219,7 @@ class AnalysisService {
     return comparison;
   }
 
-  // 설정 파일 문법 검증 (NEW)
+  // 설정 파일 문법 검증
   async validateConfig(deviceType, configText) {
     try {
       const response = await fetch(`${API_BASE_URL}/config-validate`, {
@@ -215,7 +243,7 @@ class AnalysisService {
     }
   }
 
-  // 통계 정보 조회 (NEW)
+  // 통계 정보 조회
   async getStatistics(framework = 'KISA') {
     try {
       const response = await fetch(`${API_BASE_URL}/statistics?framework=${framework}`);
@@ -238,7 +266,7 @@ class AnalysisService {
     });
   }
 
-  // 분석 결과를 UI용 형식으로 변환 (업데이트: 다중 지침서 정보 포함)
+  // 분석 결과를 UI용 형식으로 변환
   transformAnalysisResult(apiResult) {
     if (!apiResult.success) {
       throw new Error(apiResult.error || '분석에 실패했습니다');
@@ -250,14 +278,13 @@ class AnalysisService {
       '상': 'High',
       '중': 'Medium', 
       '하': 'Low',
-      // CIS
+      // CIS & NW
       'Critical': 'Critical',
       'High': 'High',
       'Medium': 'Medium',
       'Low': 'Low',
       // NIST
       'Moderate': 'Medium'
-      // NIST의 High, Low는 위의 CIS와 동일하므로 중복 제거
     };
 
     // 카테고리 매핑 (다중 지침서 지원)
@@ -273,6 +300,10 @@ class AnalysisService {
       'Configuration Management': 'Configuration',
       'Access Control': 'Access Control',
       'Secure Configuration': 'Configuration',
+      // NW
+      '비밀번호': 'Authentication',
+      '네트워크 접근': 'Access Control',
+      '서비스 관리': 'Function Management',
       // NIST
       'Identify': 'Identification',
       'Protect': 'Protection',
@@ -322,7 +353,7 @@ class AnalysisService {
     };
   }
 
-  // 지침서별 특성 정보 반환 (NEW)
+  // 지침서별 특성 정보 반환 (업데이트된 버전)
   getFrameworkInfo(frameworkId) {
     const frameworkDetails = {
       'KISA': {
@@ -333,7 +364,8 @@ class AnalysisService {
         severityLevels: ['상', '중', '하'],
         categories: ['계정 관리', '접근 관리', '패치 관리', '로그 관리', '기능 관리'],
         color: '#0066CC',
-        isImplemented: true
+        isImplemented: true,
+        totalRules: 38
       },
       'CIS': {
         name: 'CIS Controls',
@@ -341,9 +373,21 @@ class AnalysisService {
         country: 'US',
         organization: 'Center for Internet Security',
         severityLevels: ['Critical', 'High', 'Medium', 'Low'],
-        categories: ['Inventory and Control', 'Configuration Management', 'Access Control', 'Secure Configuration'],
+        categories: ['계정 관리', '접근 관리', '로그 관리'],
         color: '#FF6B35',
-        isImplemented: false
+        isImplemented: true,
+        totalRules: 11
+      },
+      'NW': {
+        name: 'NW 네트워크 보안 지침서',
+        description: '네트워크 보안 강화 지침서',
+        country: 'KR',
+        organization: 'NW Security',
+        severityLevels: ['상', '중', '하'],
+        categories: ['계정 관리', '접근 관리', '기능 관리', '로그 관리', '패치 관리'],
+        color: '#28A745',
+        isImplemented: true,
+        totalRules: 42
       },
       'NIST': {
         name: 'NIST Cybersecurity Framework',
@@ -352,12 +396,79 @@ class AnalysisService {
         organization: 'NIST',
         severityLevels: ['High', 'Moderate', 'Low'],
         categories: ['Identify', 'Protect', 'Detect', 'Respond', 'Recover'],
-        color: '#28A745',
-        isImplemented: false
+        color: '#6F42C1',
+        isImplemented: false,
+        totalRules: 0
       }
     };
 
     return frameworkDetails[frameworkId] || null;
+  }
+
+  // 지원 장비 타입 정보 반환
+  getDeviceTypeInfo() {
+    return {
+      'Cisco': {
+        name: 'Cisco IOS/IOS-XE',
+        description: 'Cisco 라우터, 스위치',
+        supportedFrameworks: ['KISA', 'CIS', 'NW'],
+        maxRules: 91
+      },
+      'Juniper': {
+        name: 'Juniper JunOS',
+        description: 'Juniper 네트워크 장비',
+        supportedFrameworks: ['KISA', 'NW'],
+        maxRules: 60
+      },
+      'HP': {
+        name: 'HP Networking',
+        description: 'HP 네트워크 장비',
+        supportedFrameworks: ['NW'],
+        maxRules: 30
+      },
+      'Piolink': {
+        name: 'Piolink',
+        description: 'Piolink 로드밸런서',
+        supportedFrameworks: ['KISA', 'NW'],
+        maxRules: 65
+      },
+      'Radware': {
+        name: 'Radware Alteon',
+        description: 'Radware 로드밸런서',
+        supportedFrameworks: ['KISA', 'NW'],
+        maxRules: 45
+      },
+      'Passport': {
+        name: 'Nortel Passport',
+        description: 'Nortel/Avaya 장비',
+        supportedFrameworks: ['KISA', 'NW'],
+        maxRules: 40
+      },
+      'Alteon': {
+        name: 'Alteon',
+        description: 'Alteon 로드밸런서',
+        supportedFrameworks: ['KISA', 'NW'],
+        maxRules: 38
+      },
+      'Dasan': {
+        name: 'Dasan',
+        description: 'Dasan 네트워크 장비',
+        supportedFrameworks: ['NW'],
+        maxRules: 25
+      },
+      'Alcatel': {
+        name: 'Alcatel',
+        description: 'Alcatel 네트워크 장비',
+        supportedFrameworks: ['NW'],
+        maxRules: 28
+      },
+      'Extreme': {
+        name: 'Extreme Networks',
+        description: 'Extreme 네트워크 장비',
+        supportedFrameworks: ['NW'],
+        maxRules: 25
+      }
+    };
   }
 }
 

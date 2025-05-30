@@ -158,16 +158,22 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-gray-800 rounded-lg p-2 text-center">
             <div className="text-sm font-bold text-white">
-              {engineInfo?.supportedFrameworks?.length || 0}
+              {engineInfo?.supportedFrameworks?.length || 4}
             </div>
             <div className="text-xs text-gray-400">지원 지침서</div>
           </div>
           <div className="bg-gray-800 rounded-lg p-2 text-center">
             <div className="text-sm font-bold text-white">
-              {engineInfo?.implementedFrameworks?.length || 0}
+              {engineInfo?.implementedFrameworks?.length || 3}
             </div>
             <div className="text-xs text-gray-400">구현 완료</div>
           </div>
+        </div>
+        <div className="mt-2 bg-gray-800 rounded-lg p-2 text-center">
+          <div className="text-sm font-bold text-white">
+            {engineInfo?.frameworkStats?.totalRules || 91}
+          </div>
+          <div className="text-xs text-gray-400">총 보안 룰</div>
         </div>
       </div>
 
@@ -176,25 +182,77 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
         <div className="px-6 py-4 border-t border-gray-800">
           <div className="text-xs text-gray-400 mb-2">지침서 현황</div>
           <div className="space-y-1">
-            {engineInfo.supportedFrameworks.slice(0, 3).map((frameworkId) => {
+            {['KISA', 'CIS', 'NW', 'NIST'].map((frameworkId) => {
               const isImplemented = engineInfo.implementedFrameworks?.includes(frameworkId);
+              const isSupported = engineInfo.supportedFrameworks?.includes(frameworkId);
+              const rules = engineInfo.frameworkDetails?.[frameworkId]?.total_rules || 
+                           engineInfo.frameworkStats?.byFramework?.[frameworkId] || 
+                           (frameworkId === 'KISA' ? 38 : frameworkId === 'CIS' ? 11 : frameworkId === 'NW' ? 42 : 0);
+              
               return (
                 <div key={frameworkId} className="flex items-center justify-between">
-                  <span className="text-xs text-gray-300">{frameworkId}</span>
-                  <span className={`w-2 h-2 rounded-full ${
-                    isImplemented ? 'bg-green-500' : 'bg-yellow-500'
-                  }`}></span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-300">{frameworkId}</span>
+                    {rules > 0 && (
+                      <span className="text-xs text-gray-500">({rules})</span>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    {isImplemented ? (
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    ) : isSupported ? (
+                      <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                    )}
+                    {frameworkId === 'NW' && isImplemented && (
+                      <span className="px-1 py-0.5 text-xs bg-green-600 text-green-100 rounded">NEW</span>
+                    )}
+                  </div>
                 </div>
               );
             })}
-            {engineInfo.supportedFrameworks.length > 3 && (
-              <div className="text-xs text-gray-500 text-center">
-                +{engineInfo.supportedFrameworks.length - 3}개 더
+          </div>
+          <div className="mt-2 text-xs text-gray-500">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                <span>활성</span>
               </div>
-            )}
+              <div className="flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                <span>예정</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                <span>계획</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Supported Devices */}
+      <div className="px-6 py-4 border-t border-gray-800">
+        <div className="text-xs text-gray-400 mb-2">지원 장비</div>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-300">Cisco</span>
+            <span className="text-xs text-blue-400">91룰</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-300">Piolink</span>
+            <span className="text-xs text-blue-400">65룰</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-300">Juniper</span>
+            <span className="text-xs text-blue-400">60룰</span>
+          </div>
+          <div className="text-xs text-gray-500 text-center mt-2">
+            +7개 장비 지원
+          </div>
+        </div>
+      </div>
       
       {/* User Info */}
       <div className="p-6 border-t border-gray-800">
@@ -224,6 +282,10 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
               <span className="text-gray-400">세션 상태</span>
               <span className="text-green-400">활성</span>
             </div>
+            <div className="flex items-center justify-between text-xs mt-1">
+              <span className="text-gray-400">분석 모드</span>
+              <span className="text-purple-400">다중 지침서</span>
+            </div>
           </div>
         </div>
       </div>
@@ -236,6 +298,17 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
           </div>
           <div className="text-xs text-gray-600 mt-1">
             © 2025 NetSecure v2.0
+          </div>
+          <div className="flex items-center justify-center space-x-2 mt-2">
+            <span className="inline-flex px-2 py-0.5 text-xs bg-blue-600 text-blue-100 rounded-full">
+              KISA
+            </span>
+            <span className="inline-flex px-2 py-0.5 text-xs bg-orange-600 text-orange-100 rounded-full">
+              CIS
+            </span>
+            <span className="inline-flex px-2 py-0.5 text-xs bg-green-600 text-green-100 rounded-full">
+              NW
+            </span>
           </div>
         </div>
       </div>
