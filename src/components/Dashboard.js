@@ -240,7 +240,7 @@ const Dashboard = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       {/* Page Title */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">대시보드</h1>
@@ -765,7 +765,7 @@ const Dashboard = ({
 
       {/* Analysis Guide */}
       {!hasResults && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
           <div className="flex items-start space-x-3">
             <svg
               className="w-6 h-6 text-blue-500 mt-1"

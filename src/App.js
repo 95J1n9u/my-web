@@ -63,7 +63,7 @@ function App() {
       }
     } catch (error) {
       console.error('Failed to load frameworks:', error);
-      // 기본값 설정
+      // API에서 로드 실패 시 기본값 설정 (NW를 구현됨으로 표시)
       setFrameworks([
         {
           id: 'KISA',
@@ -88,7 +88,7 @@ function App() {
           id: 'NW',
           name: 'NW 네트워크 보안 지침서',
           description: '네트워크 보안 강화 지침서',
-          isImplemented: true,
+          isImplemented: true, // NW를 구현됨으로 변경
           status: 'active',
           total_rules: 42,
           version: '2024',
@@ -285,52 +285,54 @@ function App() {
           onFrameworkChange={handleFrameworkChange}
           engineInfo={engineInfo}
         />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
-          {activeTab === 'dashboard' && (
-            <Dashboard
-              analysisResults={getCurrentResults()}
-              comparisonResults={comparisonResults}
-              serviceStatus={serviceStatus}
-              selectedFramework={selectedFramework}
-              frameworks={frameworks}
-              engineInfo={{
-                ...engineInfo,
-                frameworkStats,
-              }}
-              onNavigateToUpload={() => setActiveTab('upload')}
-              onNavigateToResults={() => setActiveTab('results')}
-            />
-          )}
-          {activeTab === 'upload' && (
-            <FileUpload
-              onFileUpload={handleFileUpload}
-              uploadedFile={uploadedFile}
-              isAnalyzing={isAnalyzing}
-              frameworks={frameworks}
-              deviceTypes={deviceTypes}
-              selectedFramework={selectedFramework}
-              analysisError={analysisError}
-              onReset={resetAnalysis}
-            />
-          )}
-          {activeTab === 'results' && (
-            <VulnerabilityResults
-              results={getCurrentResults()}
-              comparisonResults={comparisonResults}
-              isAnalyzing={isAnalyzing}
-              error={analysisError}
-              selectedFramework={selectedFramework}
-              frameworks={frameworks}
-              onRetry={handleRetryAnalysis}
-              onReset={resetAnalysis}
-            />
-          )}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6 pb-safe">
+          <div className="page-container">
+            {activeTab === 'dashboard' && (
+              <Dashboard
+                analysisResults={getCurrentResults()}
+                comparisonResults={comparisonResults}
+                serviceStatus={serviceStatus}
+                selectedFramework={selectedFramework}
+                frameworks={frameworks}
+                engineInfo={{
+                  ...engineInfo,
+                  frameworkStats,
+                }}
+                onNavigateToUpload={() => setActiveTab('upload')}
+                onNavigateToResults={() => setActiveTab('results')}
+              />
+            )}
+            {activeTab === 'upload' && (
+              <FileUpload
+                onFileUpload={handleFileUpload}
+                uploadedFile={uploadedFile}
+                isAnalyzing={isAnalyzing}
+                frameworks={frameworks}
+                deviceTypes={deviceTypes}
+                selectedFramework={selectedFramework}
+                analysisError={analysisError}
+                onReset={resetAnalysis}
+              />
+            )}
+            {activeTab === 'results' && (
+              <VulnerabilityResults
+                results={getCurrentResults()}
+                comparisonResults={comparisonResults}
+                isAnalyzing={isAnalyzing}
+                error={analysisError}
+                selectedFramework={selectedFramework}
+                frameworks={frameworks}
+                onRetry={handleRetryAnalysis}
+                onReset={resetAnalysis}
+              />
+            )}
+          </div>
         </main>
       </div>
 
       {/* Global Status Indicators */}
       {serviceStatus === 'checking' && (
-        <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border border-gray-200">
+        <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border border-gray-200 z-50">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
             <span className="text-sm text-gray-600">
@@ -341,7 +343,7 @@ function App() {
       )}
 
       {serviceStatus === 'offline' && (
-        <div className="fixed bottom-4 right-4 bg-red-50 rounded-lg shadow-lg p-4 border border-red-200">
+        <div className="fixed bottom-4 right-4 bg-red-50 rounded-lg shadow-lg p-4 border border-red-200 z-50">
           <div className="flex items-center space-x-2">
             <svg
               className="w-4 h-4 text-red-500"
@@ -363,7 +365,7 @@ function App() {
 
       {/* New Framework Notification */}
       {frameworks.some(f => f.id === 'NW' && f.isImplemented) && (
-        <div className="fixed bottom-4 left-4 bg-green-50 rounded-lg shadow-lg p-4 border border-green-200 max-w-sm">
+        <div className="fixed bottom-4 left-4 bg-green-50 rounded-lg shadow-lg p-4 border border-green-200 max-w-sm z-50">
           <div className="flex items-start space-x-2">
             <svg
               className="w-5 h-5 text-green-500 mt-0.5"

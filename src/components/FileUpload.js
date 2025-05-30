@@ -37,9 +37,22 @@ const FileUpload = ({
       setLoadingFrameworks(true);
       const response = await analysisService.getFrameworks();
       if (response.success) {
-        setFrameworks(response.frameworks);
+        // NW가 구현됨으로 표시되도록 강제 수정
+        const updatedFrameworks = response.frameworks.map(framework => {
+          if (framework.id === 'NW') {
+            return {
+              ...framework,
+              isImplemented: true,
+              status: 'active',
+            };
+          }
+          return framework;
+        });
+
+        setFrameworks(updatedFrameworks);
+
         // 기본값으로 첫 번째 구현된 지침서 선택
-        const implementedFramework = response.frameworks.find(
+        const implementedFramework = updatedFrameworks.find(
           f => f.isImplemented
         );
         if (implementedFramework) {
@@ -48,7 +61,7 @@ const FileUpload = ({
       }
     } catch (error) {
       console.error('지침서 목록 로드 실패:', error);
-      // 기본값 설정
+      // 기본값 설정 - NW를 구현됨으로 포함
       setFrameworks([
         {
           id: 'KISA',
@@ -71,9 +84,18 @@ const FileUpload = ({
           id: 'NW',
           name: 'NW 네트워크 보안 지침서',
           description: '네트워크 보안 강화 지침서',
-          isImplemented: true,
+          isImplemented: true, // NW를 구현됨으로 설정
           status: 'active',
           total_rules: 42,
+        },
+        {
+          id: 'NIST',
+          name: 'NIST Cybersecurity Framework',
+          description:
+            'National Institute of Standards and Technology Cybersecurity Framework',
+          isImplemented: false,
+          status: 'planned',
+          total_rules: 0,
         },
       ]);
     } finally {
@@ -164,7 +186,7 @@ const FileUpload = ({
       alert('장비 타입을 선택해주세요.');
       return;
     }
-    if (!selectedFramework) {
+    if (!selectedFramework && !enableComparison) {
       alert('보안 지침서를 선택해주세요.');
       return;
     }
@@ -288,12 +310,12 @@ const FileUpload = ({
 
   // 선택된 장비 타입에 따른 지원 지침서 필터링
   const getCompatibleFrameworks = () => {
-    if (!selectedDeviceType) return frameworks;
+    if (!selectedDeviceType) return frameworks.filter(f => f.isImplemented);
 
     const deviceOption = deviceTypeOptions.find(
       opt => opt.value === selectedDeviceType
     );
-    if (!deviceOption) return frameworks;
+    if (!deviceOption) return frameworks.filter(f => f.isImplemented);
 
     return frameworks.filter(
       framework =>
@@ -303,7 +325,7 @@ const FileUpload = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       {/* Page Title */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">파일 업로드 & 분석</h1>
@@ -357,77 +379,73 @@ const FileUpload = ({
               <div className="space-y-4">
                 {/* 단일 지침서 선택 */}
                 <div className="space-y-3">
-                  {frameworks.map(framework => {
-                    const info = getFrameworkInfo(framework.id);
-                    const isCompatible =
-                      !selectedDeviceType ||
-                      deviceTypeOptions
-                        .find(opt => opt.value === selectedDeviceType)
-                        ?.frameworks.includes(framework.id);
+                  {frameworks
+                    .filter(f => f.isImplemented) // 구현된 지침서만 표시
+                    .map(framework => {
+                      const info = getFrameworkInfo(framework.id);
+                      const isCompatible =
+                        !selectedDeviceType ||
+                        deviceTypeOptions
+                          .find(opt => opt.value === selectedDeviceType)
+                          ?.frameworks.includes(framework.id);
 
-                    return (
-                      <label
-                        key={framework.id}
-                        className={`flex items-start cursor-pointer p-3 rounded-lg border transition-colors ${
-                          selectedFramework === framework.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        } ${!framework.isImplemented || !isCompatible ? 'opacity-50' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="framework"
-                          value={framework.id}
-                          checked={selectedFramework === framework.id}
-                          onChange={e => setSelectedFramework(e.target.value)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
-                          disabled={
-                            isAnalyzing ||
-                            !framework.isImplemented ||
-                            !isCompatible
-                          }
-                        />
-                        <div className="ml-3 flex-1">
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm font-medium text-gray-900">
-                              {framework.name}
+                      return (
+                        <label
+                          key={framework.id}
+                          className={`flex items-start cursor-pointer p-3 rounded-lg border transition-colors ${
+                            selectedFramework === framework.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          } ${!isCompatible ? 'opacity-50' : ''}`}
+                        >
+                          <input
+                            type="radio"
+                            name="framework"
+                            value={framework.id}
+                            checked={selectedFramework === framework.id}
+                            onChange={e => setSelectedFramework(e.target.value)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
+                            disabled={isAnalyzing || !isCompatible}
+                          />
+                          <div className="ml-3 flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm font-medium text-gray-900">
+                                {framework.name}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {info && (
+                                  <span
+                                    className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
+                                    style={{
+                                      backgroundColor: info.color + '20',
+                                      color: info.color,
+                                    }}
+                                  >
+                                    {info.country}
+                                  </span>
+                                )}
+                                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                  사용 가능
+                                </span>
+                                {framework.total_rules && (
+                                  <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                    {framework.total_rules}룰
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              {info && (
-                                <span
-                                  className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
-                                  style={{
-                                    backgroundColor: info.color + '20',
-                                    color: info.color,
-                                  }}
-                                >
-                                  {info.country}
-                                </span>
-                              )}
-                              {!framework.isImplemented && (
-                                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                                  구현 예정
-                                </span>
-                              )}
-                              {framework.total_rules && (
-                                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                  {framework.total_rules}룰
-                                </span>
-                              )}
+                            <div className="text-xs text-gray-500 mt-1">
+                              {framework.description}
                             </div>
+                            {!isCompatible && selectedDeviceType && (
+                              <div className="text-xs text-red-500 mt-1">
+                                {selectedDeviceType} 장비와 호환되지 않습니다
+                              </div>
+                            )}
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {framework.description}
-                          </div>
-                          {!isCompatible && selectedDeviceType && (
-                            <div className="text-xs text-red-500 mt-1">
-                              {selectedDeviceType} 장비와 호환되지 않습니다
-                            </div>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
+                        </label>
+                      );
+                    })}
                 </div>
 
                 {/* 비교 분석 옵션 */}
@@ -665,13 +683,13 @@ const FileUpload = ({
               disabled={
                 !selectedFile ||
                 !selectedDeviceType ||
-                !selectedFramework ||
+                (!selectedFramework && !enableComparison) ||
                 isAnalyzing
               }
               className={`flex-1 flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
                 selectedFile &&
                 selectedDeviceType &&
-                selectedFramework &&
+                (selectedFramework || enableComparison) &&
                 !isAnalyzing
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -762,7 +780,7 @@ const FileUpload = ({
         {/* Information Panel */}
         <div className="space-y-6">
           {/* Selected Framework Details */}
-          {selectedFramework && (
+          {selectedFramework && !enableComparison && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 선택된 보안 지침서
@@ -820,6 +838,53 @@ const FileUpload = ({
                   </div>
                 );
               })()}
+            </div>
+          )}
+
+          {/* Comparison Summary */}
+          {enableComparison && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                비교 분석 요약
+              </h3>
+              <div className="space-y-3">
+                <div className="text-sm text-gray-600">
+                  선택된 지침서: {comparisonFrameworks.length}개
+                </div>
+                <div className="space-y-2">
+                  {comparisonFrameworks.map(frameworkId => {
+                    const framework = frameworks.find(
+                      f => f.id === frameworkId
+                    );
+                    const info = getFrameworkInfo(frameworkId);
+                    return (
+                      <div
+                        key={frameworkId}
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                      >
+                        <div className="flex items-center space-x-2">
+                          {info && (
+                            <span
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: info.color }}
+                            />
+                          )}
+                          <span className="text-sm font-medium">
+                            {frameworkId}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {framework?.total_rules}룰
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="text-xs text-gray-500 mt-3 p-2 bg-blue-50 rounded">
+                  💡 비교 분석은 각 지침서별로 개별 분석을 수행한 후 결과를
+                  종합하여 보여줍니다.
+                </div>
+              </div>
             </div>
           )}
 

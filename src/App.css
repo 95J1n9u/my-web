@@ -6,6 +6,15 @@
 .App {
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Main content area가 제대로 스크롤되도록 수정 */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 2rem; /* 하단 여백 추가 */
 }
 
 /* Custom scrollbar */
@@ -106,6 +115,19 @@
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
+/* 페이지 컨테이너 최소 높이 보장 */
+.page-container {
+  min-height: calc(100vh - 4rem);
+  padding-bottom: 4rem;
+}
+
+/* 컨텐츠 영역 수정 */
+.content-area {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Responsive utilities */
 @media (max-width: 768px) {
   .sidebar {
@@ -120,6 +142,17 @@
   .main-content {
     margin-left: 0;
   }
+
+  .page-container {
+    padding-bottom: 6rem; /* 모바일에서 더 많은 하단 여백 */
+  }
+}
+
+/* 스크롤 개선 */
+.scrollable-content {
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 2rem;
 }
 
 /* Print styles */
@@ -131,4 +164,13 @@
   .print-break {
     page-break-before: always;
   }
+}
+
+/* 하단 여백 유틸리티 클래스 */
+.pb-safe {
+  padding-bottom: 2rem;
+}
+
+.mb-safe {
+  margin-bottom: 2rem;
 }
