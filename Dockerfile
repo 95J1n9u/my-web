@@ -34,7 +34,7 @@ COPY . .
 # 환경 변수 설정 (빌드용)
 ENV NODE_ENV=production
 ENV REACT_APP_BUILD_ENV=production
-ENV REACT_APP_API_BASE_URL=http://localhost:5000/api/v1
+ENV REACT_APP_API_BASE_URL=https://kisa-network-analyzer-production.up.railway.app/
 ENV GENERATE_SOURCEMAP=false
 ENV REACT_APP_ENABLE_DEVTOOLS=false
 
@@ -89,7 +89,7 @@ RUN chmod +x /usr/local/bin/healthcheck.sh
 # 환경 변수 설정
 ENV NGINX_HOST=localhost
 ENV NGINX_PORT=3000
-ENV API_BASE_URL=http://localhost:5000/api/v1
+ENV API_BASE_URL=https://kisa-network-analyzer-production.up.railway.app/
 
 # 포트 노출
 EXPOSE 3000

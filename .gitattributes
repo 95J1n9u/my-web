@@ -6,3 +6,4 @@
 
 # JSON 파일도 LF 사용
 *.json text eol=lf
+

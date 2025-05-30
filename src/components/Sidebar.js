@@ -1,6 +1,10 @@
 import React from 'react';
 
 const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toLocaleString();
+  };
   const menuItems = [
     {
       id: 'dashboard',
@@ -325,13 +329,13 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
       </div>
 
       {/* User Info */}
-      <div className="p-6 border-t border-gray-800">
+      <div className="p-6 border-t border-gray-800 mt-auto">
         <div className="bg-gray-800 rounded-lg p-4">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-medium">관</span>
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-white text-sm font-medium">관리자</p>
               <p className="text-gray-400 text-xs">보안 분석가</p>
             </div>
@@ -339,22 +343,19 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
 
           {/* Additional Info */}
           <div className="mt-3 pt-3 border-t border-gray-700">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">접속 시간</span>
-              <span className="text-gray-300">
-                {new Date().toLocaleTimeString('ko-KR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-gray-400">세션 상태</span>
-              <span className="text-green-400">활성</span>
-            </div>
-            <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-gray-400">분석 모드</span>
-              <span className="text-purple-400">다중 지침서</span>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400">세션 상태</span>
+                <span className="text-green-400">활성</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400">분석 모드</span>
+                <span className="text-purple-400">다중 지침서</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400">마지막 접속</span>
+                <span className="text-gray-300">{getCurrentTime()}</span>
+              </div>
             </div>
           </div>
         </div>

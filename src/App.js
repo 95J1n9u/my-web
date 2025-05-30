@@ -20,6 +20,16 @@ function App() {
   const [serviceStatus, setServiceStatus] = useState('checking');
   const [engineInfo, setEngineInfo] = useState(null);
 
+  // 알림 상태 관리 추가
+  const [dismissedNotifications, setDismissedNotifications] = useState(
+    new Set()
+  );
+
+  // 알림 닫기 함수
+  const dismissNotification = notificationId => {
+    setDismissedNotifications(prev => new Set([...prev, notificationId]));
+  };
+
   // 컴포넌트 마운트 시 서비스 상태 및 기본 정보 로드
   useEffect(() => {
     const initialize = async () => {
@@ -363,34 +373,57 @@ function App() {
         </div>
       )}
 
-      {/* New Framework Notification */}
-      {frameworks.some(f => f.id === 'NW' && f.isImplemented) && (
-        <div className="fixed bottom-4 left-4 bg-green-50 rounded-lg shadow-lg p-4 border border-green-200 max-w-sm z-50">
-          <div className="flex items-start space-x-2">
-            <svg
-              className="w-5 h-5 text-green-500 mt-0.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <div>
-              <div className="text-sm font-medium text-green-800">
-                NW 지침서 추가됨
+      {/* New Framework Notification - X 버튼 추가 */}
+      {frameworks.some(f => f.id === 'NW' && f.isImplemented) &&
+        !dismissedNotifications.has('nw-framework-notification') && (
+          <div className="fixed bottom-4 left-4 bg-green-50 rounded-lg shadow-lg p-4 border border-green-200 max-w-sm z-50">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-2">
+                <svg
+                  className="w-5 h-5 text-green-500 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div>
+                  <div className="text-sm font-medium text-green-800">
+                    NW 지침서 추가됨
+                  </div>
+                  <div className="text-xs text-green-600 mt-1">
+                    42개의 새로운 보안 룰이 추가되어 더욱 강화된 분석이
+                    가능합니다.
+                  </div>
+                </div>
               </div>
-              <div className="text-xs text-green-600 mt-1">
-                42개의 새로운 보안 룰이 추가되어 더욱 강화된 분석이 가능합니다.
-              </div>
+              <button
+                onClick={() => dismissNotification('nw-framework-notification')}
+                className="flex-shrink-0 ml-2 p-1 rounded-lg hover:bg-green-100 transition-colors duration-200"
+                aria-label="알림 닫기"
+              >
+                <svg
+                  className="w-4 h-4 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Analysis Progress Overlay */}
       {isAnalyzing && (
