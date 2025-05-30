@@ -40,7 +40,7 @@ function App() {
         supportedFrameworks: response.supportedFrameworks,
         implementedFrameworks: response.implementedFrameworks,
         features: response.features,
-        frameworkDetails: response.frameworkDetails
+        frameworkDetails: response.frameworkDetails,
       });
     } catch (error) {
       console.error('Service health check failed:', error);
@@ -54,7 +54,9 @@ function App() {
       if (response.success) {
         setFrameworks(response.frameworks);
         // 기본값으로 첫 번째 구현된 지침서 선택
-        const implementedFramework = response.frameworks.find(f => f.isImplemented);
+        const implementedFramework = response.frameworks.find(
+          f => f.isImplemented
+        );
         if (implementedFramework) {
           setSelectedFramework(implementedFramework.id);
         }
@@ -66,11 +68,12 @@ function App() {
         {
           id: 'KISA',
           name: 'KISA 네트워크 장비 보안 가이드',
-          description: '한국인터넷진흥원(KISA) 네트워크 장비 보안 점검 가이드라인',
+          description:
+            '한국인터넷진흥원(KISA) 네트워크 장비 보안 점검 가이드라인',
           isImplemented: true,
           status: 'active',
           total_rules: 38,
-          version: '2024'
+          version: '2024',
         },
         {
           id: 'CIS',
@@ -79,7 +82,7 @@ function App() {
           isImplemented: true,
           status: 'active',
           total_rules: 11,
-          version: 'v8'
+          version: 'v8',
         },
         {
           id: 'NW',
@@ -88,17 +91,18 @@ function App() {
           isImplemented: true,
           status: 'active',
           total_rules: 42,
-          version: '2024'
+          version: '2024',
         },
         {
           id: 'NIST',
           name: 'NIST Cybersecurity Framework',
-          description: 'National Institute of Standards and Technology Cybersecurity Framework',
+          description:
+            'National Institute of Standards and Technology Cybersecurity Framework',
           isImplemented: false,
           status: 'planned',
           total_rules: 0,
-          version: '2.0'
-        }
+          version: '2.0',
+        },
       ]);
     }
   };
@@ -113,14 +117,26 @@ function App() {
       console.error('Failed to load device types:', error);
       // 기본값 설정 - 새로운 API 명세서에 따른 확장된 장비 타입
       setDeviceTypes([
-        'Cisco', 'Juniper', 'HP', 'Piolink', 
-        'Radware', 'Passport', 'Alteon', 
-        'Dasan', 'Alcatel', 'Extreme'
+        'Cisco',
+        'Juniper',
+        'HP',
+        'Piolink',
+        'Radware',
+        'Passport',
+        'Alteon',
+        'Dasan',
+        'Alcatel',
+        'Extreme',
       ]);
     }
   };
 
-  const handleFileUpload = async (file, deviceType, framework, comparisonFrameworks) => {
+  const handleFileUpload = async (
+    file,
+    deviceType,
+    framework,
+    comparisonFrameworks
+  ) => {
     if (!file || !deviceType) {
       setAnalysisError('파일과 장비 타입을 모두 선택해주세요.');
       return;
@@ -135,48 +151,60 @@ function App() {
     try {
       // 파일을 텍스트로 변환
       const configText = await analysisService.fileToText(file);
-      
+
       if (!configText.trim()) {
         throw new Error('파일이 비어있거나 읽을 수 없습니다.');
       }
 
       // 비교 분석 모드인 경우
       if (comparisonFrameworks && comparisonFrameworks.length > 1) {
-        console.log('Starting comparison analysis with frameworks:', comparisonFrameworks);
-        
-        const comparisonResult = await analysisService.compareAnalysis(
-          deviceType, 
-          configText, 
+        console.log(
+          'Starting comparison analysis with frameworks:',
           comparisonFrameworks
         );
-        
+
+        const comparisonResult = await analysisService.compareAnalysis(
+          deviceType,
+          configText,
+          comparisonFrameworks
+        );
+
         // 비교 결과를 UI 형식으로 변환
         const transformedResults = {};
-        for (const [frameworkId, result] of Object.entries(comparisonResult.frameworks)) {
+        for (const [frameworkId, result] of Object.entries(
+          comparisonResult.frameworks
+        )) {
           if (result.success) {
-            transformedResults[frameworkId] = analysisService.transformAnalysisResult(result);
+            transformedResults[frameworkId] =
+              analysisService.transformAnalysisResult(result);
           } else {
             transformedResults[frameworkId] = { error: result.error };
           }
         }
-        
+
         setComparisonResults({
           ...comparisonResult,
-          frameworks: transformedResults
+          frameworks: transformedResults,
         });
-        
       } else {
         // 단일 지침서 분석
         const selectedFrameworkId = framework || selectedFramework;
-        console.log('Starting single framework analysis with:', selectedFrameworkId);
-        
-        const apiResult = await analysisService.analyzeConfig(deviceType, configText, selectedFrameworkId);
-        const transformedResult = analysisService.transformAnalysisResult(apiResult);
+        console.log(
+          'Starting single framework analysis with:',
+          selectedFrameworkId
+        );
+
+        const apiResult = await analysisService.analyzeConfig(
+          deviceType,
+          configText,
+          selectedFrameworkId
+        );
+        const transformedResult =
+          analysisService.transformAnalysisResult(apiResult);
         setAnalysisResults(transformedResult);
       }
-      
+
       setActiveTab('results');
-      
     } catch (error) {
       console.error('Analysis failed:', error);
       setAnalysisError(error.message);
@@ -202,7 +230,7 @@ function App() {
     setActiveTab('upload');
   };
 
-  const handleFrameworkChange = (frameworkId) => {
+  const handleFrameworkChange = frameworkId => {
     setSelectedFramework(frameworkId);
     loadDeviceTypes(frameworkId); // 선택된 지침서에 따라 장비 타입 목록 업데이트
   };
@@ -211,8 +239,9 @@ function App() {
   const getCurrentResults = () => {
     if (comparisonResults) {
       // 비교 분석 결과에서 첫 번째 성공한 결과를 기본으로 표시
-      const firstSuccessfulResult = Object.values(comparisonResults.frameworks)
-        .find(result => !result.error);
+      const firstSuccessfulResult = Object.values(
+        comparisonResults.frameworks
+      ).find(result => !result.error);
       return firstSuccessfulResult || null;
     }
     return analysisResults;
@@ -224,11 +253,14 @@ function App() {
     return {
       total: frameworks.length,
       implemented: implementedFrameworks.length,
-      totalRules: implementedFrameworks.reduce((sum, f) => sum + (f.total_rules || 0), 0),
+      totalRules: implementedFrameworks.reduce(
+        (sum, f) => sum + (f.total_rules || 0),
+        0
+      ),
       byFramework: implementedFrameworks.reduce((acc, f) => {
         acc[f.id] = f.total_rules || 0;
         return acc;
-      }, {})
+      }, {}),
     };
   };
 
@@ -236,17 +268,17 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar 
-        activeTab={activeTab} 
+      <Sidebar
+        activeTab={activeTab}
         setActiveTab={setActiveTab}
         serviceStatus={serviceStatus}
         engineInfo={{
           ...engineInfo,
-          frameworkStats
+          frameworkStats,
         }}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
+        <Header
           serviceStatus={serviceStatus}
           selectedFramework={selectedFramework}
           frameworks={frameworks}
@@ -255,7 +287,7 @@ function App() {
         />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
           {activeTab === 'dashboard' && (
-            <Dashboard 
+            <Dashboard
               analysisResults={getCurrentResults()}
               comparisonResults={comparisonResults}
               serviceStatus={serviceStatus}
@@ -263,14 +295,14 @@ function App() {
               frameworks={frameworks}
               engineInfo={{
                 ...engineInfo,
-                frameworkStats
+                frameworkStats,
               }}
               onNavigateToUpload={() => setActiveTab('upload')}
               onNavigateToResults={() => setActiveTab('results')}
             />
           )}
           {activeTab === 'upload' && (
-            <FileUpload 
+            <FileUpload
               onFileUpload={handleFileUpload}
               uploadedFile={uploadedFile}
               isAnalyzing={isAnalyzing}
@@ -282,7 +314,7 @@ function App() {
             />
           )}
           {activeTab === 'results' && (
-            <VulnerabilityResults 
+            <VulnerabilityResults
               results={getCurrentResults()}
               comparisonResults={comparisonResults}
               isAnalyzing={isAnalyzing}
@@ -301,7 +333,9 @@ function App() {
         <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border border-gray-200">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="text-sm text-gray-600">서비스 연결 확인 중...</span>
+            <span className="text-sm text-gray-600">
+              서비스 연결 확인 중...
+            </span>
           </div>
         </div>
       )}
@@ -309,9 +343,18 @@ function App() {
       {serviceStatus === 'offline' && (
         <div className="fixed bottom-4 right-4 bg-red-50 rounded-lg shadow-lg p-4 border border-red-200">
           <div className="flex items-center space-x-2">
-            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            <svg
+              className="w-4 h-4 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
             </svg>
             <span className="text-sm text-red-800">서비스 연결 실패</span>
           </div>
@@ -322,12 +365,23 @@ function App() {
       {frameworks.some(f => f.id === 'NW' && f.isImplemented) && (
         <div className="fixed bottom-4 left-4 bg-green-50 rounded-lg shadow-lg p-4 border border-green-200 max-w-sm">
           <div className="flex items-start space-x-2">
-            <svg className="w-5 h-5 text-green-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-5 h-5 text-green-500 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <div>
-              <div className="text-sm font-medium text-green-800">NW 지침서 추가됨</div>
+              <div className="text-sm font-medium text-green-800">
+                NW 지침서 추가됨
+              </div>
               <div className="text-xs text-green-600 mt-1">
                 42개의 새로운 보안 룰이 추가되어 더욱 강화된 분석이 가능합니다.
               </div>
@@ -342,15 +396,20 @@ function App() {
           <div className="bg-white rounded-lg p-6 max-w-md mx-4">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">분석 진행 중</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                분석 진행 중
+              </h3>
               <p className="text-sm text-gray-600 mb-4">
-                {comparisonResults ? '다중 지침서로 분석 중입니다' : `${selectedFramework} 지침서로 분석 중입니다`}
+                {comparisonResults
+                  ? '다중 지침서로 분석 중입니다'
+                  : `${selectedFramework} 지침서로 분석 중입니다`}
               </p>
               <div className="text-xs text-gray-500">
                 {selectedFramework === 'KISA' && '38개 룰 검사 중...'}
                 {selectedFramework === 'CIS' && '11개 룰 검사 중...'}
                 {selectedFramework === 'NW' && '42개 룰 검사 중...'}
-                {comparisonResults && `${frameworks.filter(f => f.isImplemented).length}개 지침서 비교 분석 중...`}
+                {comparisonResults &&
+                  `${frameworks.filter(f => f.isImplemented).length}개 지침서 비교 분석 중...`}
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
-const API_BASE_URL = 'https://kisa-network-analyzer-production.up.railway.app/api/v1';
+const API_BASE_URL =
+  'https://kisa-network-analyzer-production.up.railway.app/api/v1';
 
 class AnalysisService {
   // 헬스 체크 (다중 지침서 정보 포함)
@@ -28,8 +29,10 @@ class AnalysisService {
   async getFrameworkRules(frameworkId, options = {}) {
     try {
       const queryParams = new URLSearchParams();
-      if (options.includeExamples) queryParams.append('includeExamples', options.includeExamples);
-      if (options.deviceType) queryParams.append('deviceType', options.deviceType);
+      if (options.includeExamples)
+        queryParams.append('includeExamples', options.includeExamples);
+      if (options.deviceType)
+        queryParams.append('deviceType', options.deviceType);
       if (options.severity) queryParams.append('severity', options.severity);
 
       const url = `${API_BASE_URL}/frameworks/${frameworkId}/rules${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
@@ -46,7 +49,9 @@ class AnalysisService {
   // 지원 장비 타입 조회
   async getDeviceTypes(framework = 'KISA') {
     try {
-      const response = await fetch(`${API_BASE_URL}/device-types?framework=${framework}`);
+      const response = await fetch(
+        `${API_BASE_URL}/device-types?framework=${framework}`
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -61,11 +66,15 @@ class AnalysisService {
     try {
       const queryParams = new URLSearchParams();
       queryParams.append('framework', framework);
-      if (options.includeExamples) queryParams.append('includeExamples', options.includeExamples);
-      if (options.deviceType) queryParams.append('deviceType', options.deviceType);
+      if (options.includeExamples)
+        queryParams.append('includeExamples', options.includeExamples);
+      if (options.deviceType)
+        queryParams.append('deviceType', options.deviceType);
       if (options.severity) queryParams.append('severity', options.severity);
 
-      const response = await fetch(`${API_BASE_URL}/rules?${queryParams.toString()}`);
+      const response = await fetch(
+        `${API_BASE_URL}/rules?${queryParams.toString()}`
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -82,7 +91,9 @@ class AnalysisService {
       queryParams.append('framework', framework);
       queryParams.append('includeExamples', includeExamples);
 
-      const response = await fetch(`${API_BASE_URL}/rules/${ruleId}?${queryParams.toString()}`);
+      const response = await fetch(
+        `${API_BASE_URL}/rules/${ruleId}?${queryParams.toString()}`
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -93,7 +104,12 @@ class AnalysisService {
   }
 
   // 설정 파일 분석
-  async analyzeConfig(deviceType, configText, framework = 'KISA', options = {}) {
+  async analyzeConfig(
+    deviceType,
+    configText,
+    framework = 'KISA',
+    options = {}
+  ) {
     try {
       const requestBody = {
         deviceType,
@@ -104,8 +120,8 @@ class AnalysisService {
           returnRawMatches: false,
           enableLogicalAnalysis: true,
           includeRecommendations: true,
-          ...options
-        }
+          ...options,
+        },
       };
 
       const response = await fetch(`${API_BASE_URL}/config-analyze`, {
@@ -113,7 +129,7 @@ class AnalysisService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -125,7 +141,10 @@ class AnalysisService {
         } else if (response.status === 429) {
           throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요');
         } else if (response.status === 501) {
-          throw new Error(errorData?.error || `${framework} 지침서는 아직 구현되지 않았습니다.`);
+          throw new Error(
+            errorData?.error ||
+              `${framework} 지침서는 아직 구현되지 않았습니다.`
+          );
         } else {
           throw new Error(errorData?.error || `서버 오류: ${response.status}`);
         }
@@ -134,7 +153,9 @@ class AnalysisService {
       return await response.json();
     } catch (error) {
       if (error.message.includes('fetch')) {
-        throw new Error('네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.');
+        throw new Error(
+          '네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.'
+        );
       }
       throw error;
     }
@@ -147,7 +168,7 @@ class AnalysisService {
         line,
         deviceType,
         framework,
-        ...(ruleIds && { ruleIds })
+        ...(ruleIds && { ruleIds }),
       };
 
       const response = await fetch(`${API_BASE_URL}/analyze-line`, {
@@ -155,7 +176,7 @@ class AnalysisService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -169,18 +190,28 @@ class AnalysisService {
   }
 
   // 다중 지침서 비교 분석
-  async compareAnalysis(deviceType, configText, frameworks = ['KISA', 'CIS', 'NW'], options = {}) {
+  async compareAnalysis(
+    deviceType,
+    configText,
+    frameworks = ['KISA', 'CIS', 'NW'],
+    options = {}
+  ) {
     try {
       // 순차적으로 각 지침서 분석 후 결과 병합
       const results = {};
       for (const framework of frameworks) {
         try {
-          results[framework] = await this.analyzeConfig(deviceType, configText, framework, options);
+          results[framework] = await this.analyzeConfig(
+            deviceType,
+            configText,
+            framework,
+            options
+          );
         } catch (error) {
           results[framework] = { error: error.message, success: false };
         }
       }
-      
+
       // 비교 분석 결과 생성
       return this.generateComparisonResult(results, frameworks);
     } catch (error) {
@@ -197,12 +228,12 @@ class AnalysisService {
         successfulAnalyses: 0,
         totalIssues: 0,
         commonIssues: 0,
-        uniqueByFramework: {}
+        uniqueByFramework: {},
       },
       metadata: {
         timestamp: new Date().toISOString(),
-        comparedFrameworks: frameworks
-      }
+        comparedFrameworks: frameworks,
+      },
     };
 
     // 성공한 분석 결과 처리
@@ -211,7 +242,8 @@ class AnalysisService {
       if (result.success) {
         comparison.summary.successfulAnalyses++;
         comparison.summary.totalIssues += result.issuesFound || 0;
-        comparison.summary.uniqueByFramework[framework] = result.issuesFound || 0;
+        comparison.summary.uniqueByFramework[framework] =
+          result.issuesFound || 0;
         successfulResults[framework] = result;
       }
     }
@@ -229,8 +261,8 @@ class AnalysisService {
         },
         body: JSON.stringify({
           deviceType,
-          configText
-        })
+          configText,
+        }),
       });
 
       if (!response.ok) {
@@ -246,7 +278,9 @@ class AnalysisService {
   // 통계 정보 조회
   async getStatistics(framework = 'KISA') {
     try {
-      const response = await fetch(`${API_BASE_URL}/statistics?framework=${framework}`);
+      const response = await fetch(
+        `${API_BASE_URL}/statistics?framework=${framework}`
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -260,8 +294,8 @@ class AnalysisService {
   async fileToText(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = (e) => reject(new Error('파일 읽기에 실패했습니다'));
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = e => reject(new Error('파일 읽기에 실패했습니다'));
       reader.readAsText(file, 'UTF-8');
     });
   }
@@ -275,16 +309,16 @@ class AnalysisService {
     // 심각도 매핑 (다중 지침서 지원)
     const severityMapping = {
       // KISA
-      '상': 'High',
-      '중': 'Medium', 
-      '하': 'Low',
+      상: 'High',
+      중: 'Medium',
+      하: 'Low',
       // CIS & NW
-      'Critical': 'Critical',
-      'High': 'High',
-      'Medium': 'Medium',
-      'Low': 'Low',
+      Critical: 'Critical',
+      High: 'High',
+      Medium: 'Medium',
+      Low: 'Low',
       // NIST
-      'Moderate': 'Medium'
+      Moderate: 'Medium',
     };
 
     // 카테고리 매핑 (다중 지침서 지원)
@@ -301,42 +335,47 @@ class AnalysisService {
       'Access Control': 'Access Control',
       'Secure Configuration': 'Configuration',
       // NW
-      '비밀번호': 'Authentication',
+      비밀번호: 'Authentication',
       '네트워크 접근': 'Access Control',
       '서비스 관리': 'Function Management',
       // NIST
-      'Identify': 'Identification',
-      'Protect': 'Protection',
-      'Detect': 'Detection',
-      'Respond': 'Response',
-      'Recover': 'Recovery'
+      Identify: 'Identification',
+      Protect: 'Protection',
+      Detect: 'Detection',
+      Respond: 'Response',
+      Recover: 'Recovery',
     };
 
-    const transformedVulnerabilities = apiResult.results.map((result, index) => ({
-      id: index + 1,
-      severity: severityMapping[result.severity] || result.severity,
-      severityKo: result.severity,
-      type: categoryMapping[result.category] || result.category,
-      typeKo: result.category,
-      description: result.description,
-      recommendation: result.recommendation,
-      line: result.line,
-      matchedText: result.matchedText,
-      ruleId: result.ruleId,
-      reference: result.reference,
-      framework: result.framework || apiResult.framework,
-      analysisType: result.analysisType || 'logical'
-    }));
+    const transformedVulnerabilities = apiResult.results.map(
+      (result, index) => ({
+        id: index + 1,
+        severity: severityMapping[result.severity] || result.severity,
+        severityKo: result.severity,
+        type: categoryMapping[result.category] || result.category,
+        typeKo: result.category,
+        description: result.description,
+        recommendation: result.recommendation,
+        line: result.line,
+        matchedText: result.matchedText,
+        ruleId: result.ruleId,
+        reference: result.reference,
+        framework: result.framework || apiResult.framework,
+        analysisType: result.analysisType || 'logical',
+      })
+    );
 
     return {
       summary: {
-        totalChecks: apiResult.statistics?.totalRulesChecked || apiResult.analysisDetails?.rulesApplied || 0,
+        totalChecks:
+          apiResult.statistics?.totalRulesChecked ||
+          apiResult.analysisDetails?.rulesApplied ||
+          0,
         vulnerabilities: apiResult.issuesFound || 0,
         warnings: apiResult.statistics?.mediumSeverityIssues || 0,
         passed: apiResult.statistics?.rulesPassed || 0,
         highSeverity: apiResult.statistics?.highSeverityIssues || 0,
         mediumSeverity: apiResult.statistics?.mediumSeverityIssues || 0,
-        lowSeverity: apiResult.statistics?.lowSeverityIssues || 0
+        lowSeverity: apiResult.statistics?.lowSeverityIssues || 0,
       },
       vulnerabilities: transformedVulnerabilities,
       metadata: {
@@ -348,26 +387,33 @@ class AnalysisService {
         timestamp: apiResult.timestamp,
         engineVersion: apiResult.engineVersion,
         contextInfo: apiResult.contextInfo,
-        analysisDetails: apiResult.analysisDetails
-      }
+        analysisDetails: apiResult.analysisDetails,
+      },
     };
   }
 
   // 지침서별 특성 정보 반환 (업데이트된 버전)
   getFrameworkInfo(frameworkId) {
     const frameworkDetails = {
-      'KISA': {
+      KISA: {
         name: 'KISA 네트워크 장비 보안 가이드',
-        description: '한국인터넷진흥원(KISA) 네트워크 장비 보안 점검 가이드라인',
+        description:
+          '한국인터넷진흥원(KISA) 네트워크 장비 보안 점검 가이드라인',
         country: 'KR',
         organization: '한국인터넷진흥원',
         severityLevels: ['상', '중', '하'],
-        categories: ['계정 관리', '접근 관리', '패치 관리', '로그 관리', '기능 관리'],
+        categories: [
+          '계정 관리',
+          '접근 관리',
+          '패치 관리',
+          '로그 관리',
+          '기능 관리',
+        ],
         color: '#0066CC',
         isImplemented: true,
-        totalRules: 38
+        totalRules: 38,
       },
-      'CIS': {
+      CIS: {
         name: 'CIS Controls',
         description: 'Center for Internet Security Controls',
         country: 'US',
@@ -376,30 +422,37 @@ class AnalysisService {
         categories: ['계정 관리', '접근 관리', '로그 관리'],
         color: '#FF6B35',
         isImplemented: true,
-        totalRules: 11
+        totalRules: 11,
       },
-      'NW': {
+      NW: {
         name: 'NW 네트워크 보안 지침서',
         description: '네트워크 보안 강화 지침서',
         country: 'KR',
         organization: 'NW Security',
         severityLevels: ['상', '중', '하'],
-        categories: ['계정 관리', '접근 관리', '기능 관리', '로그 관리', '패치 관리'],
+        categories: [
+          '계정 관리',
+          '접근 관리',
+          '기능 관리',
+          '로그 관리',
+          '패치 관리',
+        ],
         color: '#28A745',
         isImplemented: true,
-        totalRules: 42
+        totalRules: 42,
       },
-      'NIST': {
+      NIST: {
         name: 'NIST Cybersecurity Framework',
-        description: 'National Institute of Standards and Technology Cybersecurity Framework',
+        description:
+          'National Institute of Standards and Technology Cybersecurity Framework',
         country: 'US',
         organization: 'NIST',
         severityLevels: ['High', 'Moderate', 'Low'],
         categories: ['Identify', 'Protect', 'Detect', 'Respond', 'Recover'],
         color: '#6F42C1',
         isImplemented: false,
-        totalRules: 0
-      }
+        totalRules: 0,
+      },
     };
 
     return frameworkDetails[frameworkId] || null;
@@ -408,66 +461,66 @@ class AnalysisService {
   // 지원 장비 타입 정보 반환
   getDeviceTypeInfo() {
     return {
-      'Cisco': {
+      Cisco: {
         name: 'Cisco IOS/IOS-XE',
         description: 'Cisco 라우터, 스위치',
         supportedFrameworks: ['KISA', 'CIS', 'NW'],
-        maxRules: 91
+        maxRules: 91,
       },
-      'Juniper': {
+      Juniper: {
         name: 'Juniper JunOS',
         description: 'Juniper 네트워크 장비',
         supportedFrameworks: ['KISA', 'NW'],
-        maxRules: 60
+        maxRules: 60,
       },
-      'HP': {
+      HP: {
         name: 'HP Networking',
         description: 'HP 네트워크 장비',
         supportedFrameworks: ['NW'],
-        maxRules: 30
+        maxRules: 30,
       },
-      'Piolink': {
+      Piolink: {
         name: 'Piolink',
         description: 'Piolink 로드밸런서',
         supportedFrameworks: ['KISA', 'NW'],
-        maxRules: 65
+        maxRules: 65,
       },
-      'Radware': {
+      Radware: {
         name: 'Radware Alteon',
         description: 'Radware 로드밸런서',
         supportedFrameworks: ['KISA', 'NW'],
-        maxRules: 45
+        maxRules: 45,
       },
-      'Passport': {
+      Passport: {
         name: 'Nortel Passport',
         description: 'Nortel/Avaya 장비',
         supportedFrameworks: ['KISA', 'NW'],
-        maxRules: 40
+        maxRules: 40,
       },
-      'Alteon': {
+      Alteon: {
         name: 'Alteon',
         description: 'Alteon 로드밸런서',
         supportedFrameworks: ['KISA', 'NW'],
-        maxRules: 38
+        maxRules: 38,
       },
-      'Dasan': {
+      Dasan: {
         name: 'Dasan',
         description: 'Dasan 네트워크 장비',
         supportedFrameworks: ['NW'],
-        maxRules: 25
+        maxRules: 25,
       },
-      'Alcatel': {
+      Alcatel: {
         name: 'Alcatel',
         description: 'Alcatel 네트워크 장비',
         supportedFrameworks: ['NW'],
-        maxRules: 28
+        maxRules: 28,
       },
-      'Extreme': {
+      Extreme: {
         name: 'Extreme Networks',
         description: 'Extreme 네트워크 장비',
         supportedFrameworks: ['NW'],
-        maxRules: 25
-      }
+        maxRules: 25,
+      },
     };
   }
 }

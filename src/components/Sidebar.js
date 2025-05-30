@@ -7,52 +7,89 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
       name: '대시보드',
       description: '전체 현황 및 통계',
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0a2 2 0 01-2 2H10a2 2 0 01-2-2v0z" />
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0a2 2 0 01-2 2H10a2 2 0 01-2-2v0z"
+          />
         </svg>
-      )
+      ),
     },
     {
       id: 'upload',
       name: '파일 업로드',
       description: '설정 파일 분석',
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+          />
         </svg>
-      )
+      ),
     },
     {
       id: 'results',
       name: '분석 결과',
       description: '취약점 및 권고사항',
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          />
         </svg>
-      )
-    }
+      ),
+    },
   ];
 
   // 서비스 상태에 따른 스타일
   const getServiceStatusColor = () => {
     switch (serviceStatus) {
-      case 'online': return 'bg-green-500';
-      case 'offline': return 'bg-red-500';
-      default: return 'bg-yellow-500';
+      case 'online':
+        return 'bg-green-500';
+      case 'offline':
+        return 'bg-red-500';
+      default:
+        return 'bg-yellow-500';
     }
   };
 
   const getServiceStatusText = () => {
     switch (serviceStatus) {
-      case 'online': return '서비스 정상';
-      case 'offline': return '서비스 오류';
-      default: return '연결 확인 중';
+      case 'online':
+        return '서비스 정상';
+      case 'offline':
+        return '서비스 오류';
+      default:
+        return '연결 확인 중';
     }
   };
 
@@ -62,9 +99,18 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
       <div className="p-6">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            <svg
+              className="w-6 h-6 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              />
             </svg>
           </div>
           <div>
@@ -77,8 +123,12 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
       {/* Service Status */}
       <div className="px-6 pb-4">
         <div className="flex items-center space-x-2 p-3 bg-gray-800 rounded-lg">
-          <div className={`w-2 h-2 rounded-full ${getServiceStatusColor()}`}></div>
-          <span className="text-sm text-gray-300">{getServiceStatusText()}</span>
+          <div
+            className={`w-2 h-2 rounded-full ${getServiceStatusColor()}`}
+          ></div>
+          <span className="text-sm text-gray-300">
+            {getServiceStatusText()}
+          </span>
         </div>
       </div>
 
@@ -91,11 +141,13 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
               {engineInfo.engineVersion}
             </div>
             <div className="flex items-center space-x-2 text-xs text-gray-400">
-              <span>{engineInfo.implementedFrameworks?.length || 0}개 지침서</span>
+              <span>
+                {engineInfo.implementedFrameworks?.length || 0}개 지침서
+              </span>
               <span>•</span>
               <span>v{engineInfo.version}</span>
             </div>
-            
+
             {/* Feature Indicators */}
             <div className="mt-2 flex flex-wrap gap-1">
               {engineInfo.features?.multiFrameworkSupport && (
@@ -117,11 +169,11 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
           </div>
         </div>
       )}
-      
+
       {/* Navigation Menu */}
       <nav className="flex-1">
         <div className="px-3">
-          {menuItems.map((item) => (
+          {menuItems.map(item => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
@@ -131,16 +183,20 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
                   : 'text-gray-300 hover:bg-gray-800 hover:text-white'
               }`}
             >
-              <span className={`mr-3 transition-transform duration-200 ${
-                activeTab === item.id ? 'scale-110' : 'group-hover:scale-105'
-              }`}>
+              <span
+                className={`mr-3 transition-transform duration-200 ${
+                  activeTab === item.id ? 'scale-110' : 'group-hover:scale-105'
+                }`}
+              >
                 {item.icon}
               </span>
               <div className="flex-1">
                 <div className="font-medium">{item.name}</div>
-                <div className={`text-xs mt-0.5 ${
-                  activeTab === item.id ? 'text-blue-100' : 'text-gray-500'
-                }`}>
+                <div
+                  className={`text-xs mt-0.5 ${
+                    activeTab === item.id ? 'text-blue-100' : 'text-gray-500'
+                  }`}
+                >
                   {item.description}
                 </div>
               </div>
@@ -182,15 +238,27 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
         <div className="px-6 py-4 border-t border-gray-800">
           <div className="text-xs text-gray-400 mb-2">지침서 현황</div>
           <div className="space-y-1">
-            {['KISA', 'CIS', 'NW', 'NIST'].map((frameworkId) => {
-              const isImplemented = engineInfo.implementedFrameworks?.includes(frameworkId);
-              const isSupported = engineInfo.supportedFrameworks?.includes(frameworkId);
-              const rules = engineInfo.frameworkDetails?.[frameworkId]?.total_rules || 
-                           engineInfo.frameworkStats?.byFramework?.[frameworkId] || 
-                           (frameworkId === 'KISA' ? 38 : frameworkId === 'CIS' ? 11 : frameworkId === 'NW' ? 42 : 0);
-              
+            {['KISA', 'CIS', 'NW', 'NIST'].map(frameworkId => {
+              const isImplemented =
+                engineInfo.implementedFrameworks?.includes(frameworkId);
+              const isSupported =
+                engineInfo.supportedFrameworks?.includes(frameworkId);
+              const rules =
+                engineInfo.frameworkDetails?.[frameworkId]?.total_rules ||
+                engineInfo.frameworkStats?.byFramework?.[frameworkId] ||
+                (frameworkId === 'KISA'
+                  ? 38
+                  : frameworkId === 'CIS'
+                    ? 11
+                    : frameworkId === 'NW'
+                      ? 42
+                      : 0);
+
               return (
-                <div key={frameworkId} className="flex items-center justify-between">
+                <div
+                  key={frameworkId}
+                  className="flex items-center justify-between"
+                >
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-300">{frameworkId}</span>
                     {rules > 0 && (
@@ -206,7 +274,9 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
                       <span className="w-2 h-2 rounded-full bg-gray-500"></span>
                     )}
                     {frameworkId === 'NW' && isImplemented && (
-                      <span className="px-1 py-0.5 text-xs bg-green-600 text-green-100 rounded">NEW</span>
+                      <span className="px-1 py-0.5 text-xs bg-green-600 text-green-100 rounded">
+                        NEW
+                      </span>
                     )}
                   </div>
                 </div>
@@ -253,7 +323,7 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
           </div>
         </div>
       </div>
-      
+
       {/* User Info */}
       <div className="p-6 border-t border-gray-800">
         <div className="bg-gray-800 rounded-lg p-4">
@@ -266,15 +336,15 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
               <p className="text-gray-400 text-xs">보안 분석가</p>
             </div>
           </div>
-          
+
           {/* Additional Info */}
           <div className="mt-3 pt-3 border-t border-gray-700">
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">접속 시간</span>
               <span className="text-gray-300">
-                {new Date().toLocaleTimeString('ko-KR', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
+                {new Date().toLocaleTimeString('ko-KR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
                 })}
               </span>
             </div>
