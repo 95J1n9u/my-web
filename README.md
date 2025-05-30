@@ -40,9 +40,10 @@
 - **Recharts** - 데이터 시각화
 
 ### Backend API
-- **Base URL**: `http://localhost:5000/api/v1`
+- **Base URL**: `https://kisa-network-analyzer-production.up.railway.app/api/v1`
 - **Engine**: Multi-Framework 1.0
 - **분석 엔진**: 논리 기반 + 패턴 매칭
+- **호스팅**: Railway (클라우드 플랫폼)
 
 ### 개발 도구
 - **Create React App 5.0.1**
@@ -65,7 +66,7 @@ npm install
 ### 3. 환경 변수 설정
 `.env` 파일을 생성하고 다음 내용을 추가:
 ```env
-REACT_APP_API_BASE_URL=http://localhost:5000/api/v1
+REACT_APP_API_BASE_URL=https://kisa-network-analyzer-production.up.railway.app/api/v1
 REACT_APP_SERVICE_NAME=NetSecure Multi-Framework Analyzer
 REACT_APP_VERSION=2.0.0
 ```
@@ -83,16 +84,22 @@ npm run build
 
 ## 🔧 API 서버 설정
 
-분석 API 서버가 `http://localhost:5000`에서 실행되고 있어야 합니다.
+분석 API 서버가 Railway 클라우드에서 실행되고 있습니다.
 
 ### API 서버 상태 확인
 ```bash
-curl http://localhost:5000/api/v1/health
+curl https://kisa-network-analyzer-production.up.railway.app/api/v1/health
 ```
 
 ### 지원 지침서 확인
 ```bash
-curl http://localhost:5000/api/v1/frameworks
+curl https://kisa-network-analyzer-production.up.railway.app/api/v1/frameworks
+```
+
+### 로컬 개발 시 API 서버 변경
+로컬에서 API 서버를 실행하는 경우 `.env` 파일을 수정:
+```env
+REACT_APP_API_BASE_URL=http://localhost:5000/api/v1
 ```
 
 ## 📖 사용 방법
@@ -127,7 +134,7 @@ curl http://localhost:5000/api/v1/frameworks
 
 ### KISA 지침서로 Cisco 장비 분석
 ```bash
-curl -X POST http://localhost:5000/api/v1/config-analyze \
+curl -X POST https://kisa-network-analyzer-production.up.railway.app/api/v1/config-analyze \
   -H "Content-Type: application/json" \
   -d '{
     "deviceType": "Cisco",
@@ -198,7 +205,7 @@ src/
   "react": "^19.1.0",
   "react-dom": "^19.1.0",
   "tailwindcss": "^3.4.17",
-  "lucide-react": "latest",
+  "lucide-icons": "latest",
   "recharts": "latest"
 }
 ```
@@ -219,9 +226,9 @@ src/
 Error: 서비스 연결에 실패했습니다
 ```
 **해결방법**:
-- API 서버가 `localhost:5000`에서 실행 중인지 확인
-- 방화벽 설정 확인
-- CORS 설정 확인
+- Railway API 서버 상태 확인: `https://kisa-network-analyzer-production.up.railway.app/api/v1/health`
+- 인터넷 연결 상태 확인
+- CORS 설정 확인 (Railway 서버에서 설정됨)
 
 #### 2. 지침서 구현 오류
 ```
