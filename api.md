@@ -179,7 +179,7 @@ API 상태 및 지원 기능 확인
 #### 요청 예시
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/config-analyze \
+curl -X POST https://kisa-network-analyzer-production.up.railway.app/api/v1/config-analyze \
   -H "Content-Type: application/json" \
   -d '{
     "deviceType": "Cisco",

@@ -20,6 +20,9 @@ function App() {
   const [serviceStatus, setServiceStatus] = useState('checking');
   const [engineInfo, setEngineInfo] = useState(null);
 
+  // 모바일 사이드바 상태 추가
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   // 알림 상태 관리 추가
   const [dismissedNotifications, setDismissedNotifications] = useState(
     new Set()
@@ -28,6 +31,17 @@ function App() {
   // 알림 닫기 함수
   const dismissNotification = notificationId => {
     setDismissedNotifications(prev => new Set([...prev, notificationId]));
+  };
+
+  // 모바일 사이드바 토글
+  const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+  // 탭 변경시 모바일 사이드바 닫기
+  const handleTabChange = tabId => {
+    setActiveTab(tabId);
+    setIsMobileSidebarOpen(false);
   };
 
   // 컴포넌트 마운트 시 서비스 상태 및 기본 정보 로드
@@ -98,7 +112,7 @@ function App() {
           id: 'NW',
           name: 'NW 네트워크 보안 지침서',
           description: '네트워크 보안 강화 지침서',
-          isImplemented: true, // NW를 구현됨으로 변경
+          isImplemented: true,
           status: 'active',
           total_rules: 42,
           version: '2024',
@@ -242,7 +256,7 @@ function App() {
 
   const handleFrameworkChange = frameworkId => {
     setSelectedFramework(frameworkId);
-    loadDeviceTypes(frameworkId); // 선택된 지침서에 따라 장비 타입 목록 업데이트
+    loadDeviceTypes(frameworkId);
   };
 
   // 현재 표시할 결과 결정 (단일 분석 또는 비교 분석)
@@ -277,26 +291,46 @@ function App() {
   const frameworkStats = getFrameworkStats();
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        serviceStatus={serviceStatus}
-        engineInfo={{
-          ...engineInfo,
-          frameworkStats,
-        }}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex h-screen bg-gray-100 relative">
+      {/* 모바일 오버레이 */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* 사이드바 */}
+      <div
+        className={`fixed lg:relative lg:translate-x-0 transform transition-transform duration-300 ease-in-out z-40 ${
+          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          serviceStatus={serviceStatus}
+          engineInfo={{
+            ...engineInfo,
+            frameworkStats,
+          }}
+        />
+      </div>
+
+      {/* 메인 컨텐츠 영역 */}
+      <div className="flex-1 flex flex-col overflow-hidden w-full lg:w-auto">
         <Header
           serviceStatus={serviceStatus}
           selectedFramework={selectedFramework}
           frameworks={frameworks}
           onFrameworkChange={handleFrameworkChange}
           engineInfo={engineInfo}
+          onToggleMobileSidebar={toggleMobileSidebar}
+          isMobileSidebarOpen={isMobileSidebarOpen}
         />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6 pb-safe">
-          <div className="page-container">
+
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-3 lg:p-6">
+          <div className="max-w-7xl mx-auto">
             {activeTab === 'dashboard' && (
               <Dashboard
                 analysisResults={getCurrentResults()}
@@ -308,8 +342,8 @@ function App() {
                   ...engineInfo,
                   frameworkStats,
                 }}
-                onNavigateToUpload={() => setActiveTab('upload')}
-                onNavigateToResults={() => setActiveTab('results')}
+                onNavigateToUpload={() => handleTabChange('upload')}
+                onNavigateToResults={() => handleTabChange('results')}
               />
             )}
             {activeTab === 'upload' && (
@@ -340,23 +374,21 @@ function App() {
         </main>
       </div>
 
-      {/* Global Status Indicators */}
+      {/* 상태 표시 - 모바일 최적화 */}
       {serviceStatus === 'checking' && (
-        <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border border-gray-200 z-50">
+        <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-3 border border-gray-200 z-50 max-w-xs">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="text-sm text-gray-600">
-              서비스 연결 확인 중...
-            </span>
+            <span className="text-sm text-gray-600">연결 확인 중...</span>
           </div>
         </div>
       )}
 
       {serviceStatus === 'offline' && (
-        <div className="fixed bottom-4 right-4 bg-red-50 rounded-lg shadow-lg p-4 border border-red-200 z-50">
+        <div className="fixed bottom-4 right-4 bg-red-50 rounded-lg shadow-lg p-3 border border-red-200 z-50 max-w-xs">
           <div className="flex items-center space-x-2">
             <svg
-              className="w-4 h-4 text-red-500"
+              className="w-4 h-4 text-red-500 flex-shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -368,67 +400,15 @@ function App() {
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"
               />
             </svg>
-            <span className="text-sm text-red-800">서비스 연결 실패</span>
+            <span className="text-sm text-red-800">연결 실패</span>
           </div>
         </div>
       )}
 
-      {/* New Framework Notification - X 버튼 추가 */}
-      {frameworks.some(f => f.id === 'NW' && f.isImplemented) &&
-        !dismissedNotifications.has('nw-framework-notification') && (
-          <div className="fixed bottom-4 left-4 bg-green-50 rounded-lg shadow-lg p-4 border border-green-200 max-w-sm z-50">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-2">
-                <svg
-                  className="w-5 h-5 text-green-500 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <div>
-                  <div className="text-sm font-medium text-green-800">
-                    NW 지침서 추가됨
-                  </div>
-                  <div className="text-xs text-green-600 mt-1">
-                    42개의 새로운 보안 룰이 추가되어 더욱 강화된 분석이
-                    가능합니다.
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => dismissNotification('nw-framework-notification')}
-                className="flex-shrink-0 ml-2 p-1 rounded-lg hover:bg-green-100 transition-colors duration-200"
-                aria-label="알림 닫기"
-              >
-                <svg
-                  className="w-4 h-4 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
-
-      {/* Analysis Progress Overlay */}
+      {/* 분석 진행 오버레이 */}
       {isAnalyzing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -436,15 +416,11 @@ function App() {
               </h3>
               <p className="text-sm text-gray-600 mb-4">
                 {comparisonResults
-                  ? '다중 지침서로 분석 중입니다'
-                  : `${selectedFramework} 지침서로 분석 중입니다`}
+                  ? '다중 지침서 분석 중'
+                  : `${selectedFramework} 지침서 분석 중`}
               </p>
               <div className="text-xs text-gray-500">
-                {selectedFramework === 'KISA' && '38개 룰 검사 중...'}
-                {selectedFramework === 'CIS' && '11개 룰 검사 중...'}
-                {selectedFramework === 'NW' && '42개 룰 검사 중...'}
-                {comparisonResults &&
-                  `${frameworks.filter(f => f.isImplemented).length}개 지침서 비교 분석 중...`}
+                잠시만 기다려주세요...
               </div>
             </div>
           </div>

@@ -1,15 +1,11 @@
 import React from 'react';
 
 const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
-  const getCurrentTime = () => {
-    const now = new Date();
-    return now.toLocaleString();
-  };
   const menuItems = [
     {
       id: 'dashboard',
       name: '대시보드',
-      description: '전체 현황 및 통계',
+      description: '전체 현황',
       icon: (
         <svg
           className="w-6 h-6"
@@ -35,7 +31,7 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
     {
       id: 'upload',
       name: '파일 업로드',
-      description: '설정 파일 분석',
+      description: '설정 분석',
       icon: (
         <svg
           className="w-6 h-6"
@@ -55,7 +51,7 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
     {
       id: 'results',
       name: '분석 결과',
-      description: '취약점 및 권고사항',
+      description: '취약점 보고서',
       icon: (
         <svg
           className="w-6 h-6"
@@ -98,13 +94,13 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
   };
 
   return (
-    <div className="w-64 bg-gray-900 shadow-lg flex flex-col">
+    <div className="w-64 bg-gray-900 shadow-lg flex flex-col h-full">
       {/* Logo and Title */}
-      <div className="p-6">
+      <div className="p-4 lg:p-6">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 lg:w-10 h-8 lg:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
             <svg
-              className="w-6 h-6 text-white"
+              className="w-4 lg:w-6 h-4 lg:h-6 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -118,29 +114,33 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">넷시큐어</h1>
-            <p className="text-gray-400 text-sm">다중 지침서 분석기</p>
+            <h1 className="text-lg lg:text-xl font-bold text-white">
+              넷시큐어
+            </h1>
+            <p className="text-gray-400 text-xs lg:text-sm">
+              다중 지침서 분석기
+            </p>
           </div>
         </div>
       </div>
 
       {/* Service Status */}
-      <div className="px-6 pb-4">
-        <div className="flex items-center space-x-2 p-3 bg-gray-800 rounded-lg">
+      <div className="px-4 lg:px-6 pb-4">
+        <div className="flex items-center space-x-2 p-2 lg:p-3 bg-gray-800 rounded-lg">
           <div
             className={`w-2 h-2 rounded-full ${getServiceStatusColor()}`}
           ></div>
-          <span className="text-sm text-gray-300">
+          <span className="text-xs lg:text-sm text-gray-300">
             {getServiceStatusText()}
           </span>
         </div>
       </div>
 
-      {/* Engine Info */}
+      {/* Engine Info - 간소화 */}
       {engineInfo && (
-        <div className="px-6 pb-4">
-          <div className="p-3 bg-gray-800 rounded-lg">
-            <div className="text-xs text-gray-400 mb-2">분석 엔진</div>
+        <div className="px-4 lg:px-6 pb-4">
+          <div className="p-2 lg:p-3 bg-gray-800 rounded-lg">
+            <div className="text-xs text-gray-400 mb-1 lg:mb-2">분석 엔진</div>
             <div className="text-sm text-white font-medium mb-1">
               {engineInfo.engineVersion}
             </div>
@@ -148,135 +148,88 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
               <span>
                 {engineInfo.implementedFrameworks?.length || 0}개 지침서
               </span>
-              <span>•</span>
-              <span>v{engineInfo.version}</span>
-            </div>
-
-            {/* Feature Indicators */}
-            <div className="mt-2 flex flex-wrap gap-1">
-              {engineInfo.features?.multiFrameworkSupport && (
-                <span className="px-2 py-0.5 text-xs bg-blue-600 text-blue-100 rounded-full">
-                  다중 지침서
-                </span>
-              )}
-              {engineInfo.features?.frameworkComparison && (
-                <span className="px-2 py-0.5 text-xs bg-green-600 text-green-100 rounded-full">
-                  비교 분석
-                </span>
-              )}
-              {engineInfo.features?.logicalAnalysis && (
-                <span className="px-2 py-0.5 text-xs bg-purple-600 text-purple-100 rounded-full">
-                  논리 분석
-                </span>
-              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Navigation Menu */}
-      <nav className="flex-1">
-        <div className="px-3">
-          {menuItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center px-3 py-3 mb-1 text-left transition-all duration-200 rounded-lg group ${
-                activeTab === item.id
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+      <nav className="flex-1 px-3">
+        {menuItems.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={`w-full flex items-center px-3 py-3 mb-1 text-left transition-all duration-200 rounded-lg group ${
+              activeTab === item.id
+                ? 'bg-blue-600 text-white shadow-lg'
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+            }`}
+          >
+            <span
+              className={`mr-3 transition-transform duration-200 ${
+                activeTab === item.id ? 'scale-110' : 'group-hover:scale-105'
               }`}
             >
-              <span
-                className={`mr-3 transition-transform duration-200 ${
-                  activeTab === item.id ? 'scale-110' : 'group-hover:scale-105'
+              {item.icon}
+            </span>
+            <div className="flex-1">
+              <div className="font-medium text-sm lg:text-base">
+                {item.name}
+              </div>
+              <div
+                className={`text-xs mt-0.5 ${
+                  activeTab === item.id ? 'text-blue-100' : 'text-gray-500'
                 }`}
               >
-                {item.icon}
-              </span>
-              <div className="flex-1">
-                <div className="font-medium">{item.name}</div>
-                <div
-                  className={`text-xs mt-0.5 ${
-                    activeTab === item.id ? 'text-blue-100' : 'text-gray-500'
-                  }`}
-                >
-                  {item.description}
-                </div>
+                {item.description}
               </div>
-              {activeTab === item.id && (
-                <div className="w-1 h-8 bg-blue-300 rounded-full ml-2"></div>
-              )}
-            </button>
-          ))}
-        </div>
+            </div>
+          </button>
+        ))}
       </nav>
 
-      {/* Quick Stats */}
-      <div className="px-6 py-4 border-t border-gray-800">
-        <div className="text-xs text-gray-400 mb-2">빠른 통계</div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-gray-800 rounded-lg p-2 text-center">
-            <div className="text-sm font-bold text-white">
-              {engineInfo?.supportedFrameworks?.length || 4}
-            </div>
-            <div className="text-xs text-gray-400">지원 지침서</div>
-          </div>
+      {/* Quick Stats - 간소화 */}
+      <div className="px-4 lg:px-6 py-4 border-t border-gray-800">
+        <div className="text-xs text-gray-400 mb-2">통계</div>
+        <div className="grid grid-cols-3 gap-2">
           <div className="bg-gray-800 rounded-lg p-2 text-center">
             <div className="text-sm font-bold text-white">
               {engineInfo?.implementedFrameworks?.length || 3}
             </div>
-            <div className="text-xs text-gray-400">구현 완료</div>
+            <div className="text-xs text-gray-400">지침서</div>
           </div>
-        </div>
-        <div className="mt-2 bg-gray-800 rounded-lg p-2 text-center">
-          <div className="text-sm font-bold text-white">
-            {engineInfo?.frameworkStats?.totalRules || 91}
+          <div className="bg-gray-800 rounded-lg p-2 text-center">
+            <div className="text-sm font-bold text-white">
+              {engineInfo?.frameworkStats?.totalRules || 91}
+            </div>
+            <div className="text-xs text-gray-400">총 룰</div>
           </div>
-          <div className="text-xs text-gray-400">총 보안 룰</div>
+          <div className="bg-gray-800 rounded-lg p-2 text-center">
+            <div className="text-sm font-bold text-white">10</div>
+            <div className="text-xs text-gray-400">장비</div>
+          </div>
         </div>
       </div>
 
-      {/* Framework Status */}
+      {/* Framework Status - 간소화 */}
       {engineInfo && engineInfo.supportedFrameworks && (
-        <div className="px-6 py-4 border-t border-gray-800">
+        <div className="px-4 lg:px-6 py-4 border-t border-gray-800">
           <div className="text-xs text-gray-400 mb-2">지침서 현황</div>
           <div className="space-y-1">
-            {['KISA', 'CIS', 'NW', 'NIST'].map(frameworkId => {
+            {['KISA', 'CIS', 'NW'].map(frameworkId => {
               const isImplemented =
                 engineInfo.implementedFrameworks?.includes(frameworkId);
-              const isSupported =
-                engineInfo.supportedFrameworks?.includes(frameworkId);
-              const rules =
-                engineInfo.frameworkDetails?.[frameworkId]?.total_rules ||
-                engineInfo.frameworkStats?.byFramework?.[frameworkId] ||
-                (frameworkId === 'KISA'
-                  ? 38
-                  : frameworkId === 'CIS'
-                    ? 11
-                    : frameworkId === 'NW'
-                      ? 42
-                      : 0);
 
               return (
                 <div
                   key={frameworkId}
                   className="flex items-center justify-between"
                 >
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-300">{frameworkId}</span>
-                    {rules > 0 && (
-                      <span className="text-xs text-gray-500">({rules})</span>
-                    )}
-                  </div>
+                  <span className="text-xs text-gray-300">{frameworkId}</span>
                   <div className="flex items-center space-x-1">
-                    {isImplemented ? (
-                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                    ) : isSupported ? (
-                      <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-                    )}
+                    <span
+                      className={`w-2 h-2 rounded-full ${isImplemented ? 'bg-green-500' : 'bg-gray-500'}`}
+                    ></span>
                     {frameworkId === 'NW' && isImplemented && (
                       <span className="px-1 py-0.5 text-xs bg-green-600 text-green-100 rounded">
                         NEW
@@ -287,97 +240,21 @@ const Sidebar = ({ activeTab, setActiveTab, serviceStatus, engineInfo }) => {
               );
             })}
           </div>
-          <div className="mt-2 text-xs text-gray-500">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                <span>활성</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                <span>예정</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-                <span>계획</span>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* Supported Devices */}
-      <div className="px-6 py-4 border-t border-gray-800">
-        <div className="text-xs text-gray-400 mb-2">지원 장비</div>
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-300">Cisco</span>
-            <span className="text-xs text-blue-400">91룰</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-300">Piolink</span>
-            <span className="text-xs text-blue-400">65룰</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-300">Juniper</span>
-            <span className="text-xs text-blue-400">60룰</span>
-          </div>
-          <div className="text-xs text-gray-500 text-center mt-2">
-            +7개 장비 지원
-          </div>
-        </div>
-      </div>
-
-      {/* User Info */}
-      <div className="p-6 border-t border-gray-800 mt-auto">
-        <div className="bg-gray-800 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">관</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-white text-sm font-medium">관리자</p>
-              <p className="text-gray-400 text-xs">보안 분석가</p>
-            </div>
-          </div>
-
-          {/* Additional Info */}
-          <div className="mt-3 pt-3 border-t border-gray-700">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">세션 상태</span>
-                <span className="text-green-400">활성</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">분석 모드</span>
-                <span className="text-purple-400">다중 지침서</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">마지막 접속</span>
-                <span className="text-gray-300">{getCurrentTime()}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Footer */}
-      <div className="px-6 py-4 border-t border-gray-800">
+      <div className="px-4 lg:px-6 py-4 border-t border-gray-800 mt-auto">
         <div className="text-center">
-          <div className="text-xs text-gray-500">
-            Powered by Multi-Framework Engine
-          </div>
-          <div className="text-xs text-gray-600 mt-1">
-            © 2025 NetSecure v2.0
-          </div>
-          <div className="flex items-center justify-center space-x-2 mt-2">
-            <span className="inline-flex px-2 py-0.5 text-xs bg-blue-600 text-blue-100 rounded-full">
+          <div className="text-xs text-gray-500">NetSecure v2.0</div>
+          <div className="flex items-center justify-center space-x-1 mt-2">
+            <span className="inline-flex px-1.5 py-0.5 text-xs bg-blue-600 text-blue-100 rounded">
               KISA
             </span>
-            <span className="inline-flex px-2 py-0.5 text-xs bg-orange-600 text-orange-100 rounded-full">
+            <span className="inline-flex px-1.5 py-0.5 text-xs bg-orange-600 text-orange-100 rounded">
               CIS
             </span>
-            <span className="inline-flex px-2 py-0.5 text-xs bg-green-600 text-green-100 rounded-full">
+            <span className="inline-flex px-1.5 py-0.5 text-xs bg-green-600 text-green-100 rounded">
               NW
             </span>
           </div>

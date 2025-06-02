@@ -15,10 +15,11 @@
     "multi-framework",
     "config-analysis"
   ],
-    "lint-staged": {
-    "**/*.{js,ts,json,md}": ["prettier --write"]
+  "lint-staged": {
+    "**/*.{js,ts,json,md}": [
+      "prettier --write"
+    ]
   },
-  
   "author": {
     "name": "NetSecure Team",
     "email": "security@example.com",
@@ -172,6 +173,4 @@
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
   }
-  
 }
-
