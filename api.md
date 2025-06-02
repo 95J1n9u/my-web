@@ -18,21 +18,26 @@ KISA, CIS, NW 등 다양한 보안 지침서를 기반으로 네트워크 장비
 ## 📋 엔드포인트 목록
 
 ### 1. 시스템 상태
+
 - [GET /health](#get-health) - API 상태 확인
 
 ### 2. 지침서 관리
+
 - [GET /frameworks](#get-frameworks) - 지원 지침서 목록 조회
 - [GET /frameworks/{framework_id}/rules](#get-frameworksframework_idrules) - 특정 지침서 룰 목록
 
 ### 3. 설정 분석
+
 - [POST /config-analyze](#post-config-analyze) - 설정 파일 분석 (메인)
 - [POST /analyze-line](#post-analyze-line) - 단일 라인 분석
 
 ### 4. 룰 관리
+
 - [GET /rules](#get-rules) - 룰 목록 조회
 - [GET /device-types](#get-device-types) - 지원 장비 타입 조회
 
 ### 5. 통계 및 정보
+
 - [GET /statistics](#get-statistics) - 분석 엔진 통계
 
 ---
@@ -101,11 +106,17 @@ API 상태 및 지원 기능 확인
       "description": "한국인터넷진흥원(KISA) 네트워크 장비 보안 점검 가이드라인",
       "version": "2024",
       "total_rules": 38,
-      "categories": ["계정 관리", "접근 관리", "패치 관리", "로그 관리", "기능 관리"],
+      "categories": [
+        "계정 관리",
+        "접근 관리",
+        "패치 관리",
+        "로그 관리",
+        "기능 관리"
+      ],
       "statistics": {
         "totalRules": 38,
-        "severityStats": {"상": 14, "중": 19, "하": 5},
-        "deviceStats": {"Cisco": 38, "Juniper": 25, "Piolink": 30}
+        "severityStats": { "상": 14, "중": 19, "하": 5 },
+        "deviceStats": { "Cisco": 38, "Juniper": 25, "Piolink": 30 }
       },
       "isImplemented": true,
       "status": "active"
@@ -126,7 +137,13 @@ API 상태 및 지원 기능 확인
       "description": "네트워크 보안 강화 지침서",
       "version": "2024",
       "total_rules": 42,
-      "categories": ["계정 관리", "접근 관리", "기능 관리", "로그 관리", "패치 관리"],
+      "categories": [
+        "계정 관리",
+        "접근 관리",
+        "기능 관리",
+        "로그 관리",
+        "패치 관리"
+      ],
       "isImplemented": true,
       "status": "active"
     },
@@ -152,20 +169,22 @@ API 상태 및 지원 기능 확인
 
 ```json
 {
-  "deviceType": "Cisco",                    // 필수: 장비 타입
-  "framework": "KISA",                      // 선택: 지침서 (기본값: KISA)
-  "configText": "...",                      // 필수: 설정 파일 전체 텍스트
-  "options": {                              // 선택: 분석 옵션
-    "checkAllRules": true,                  // 모든 룰 검사 여부
-    "specificRuleIds": ["N-01", "N-04"],   // 특정 룰만 검사 (checkAllRules: false일 때)
-    "returnRawMatches": false,              // 원본 매칭 텍스트 반환 여부
-    "enableLogicalAnalysis": true,          // 논리적 분석 활성화
-    "includeRecommendations": true          // 권고사항 포함 여부
+  "deviceType": "Cisco", // 필수: 장비 타입
+  "framework": "KISA", // 선택: 지침서 (기본값: KISA)
+  "configText": "...", // 필수: 설정 파일 전체 텍스트
+  "options": {
+    // 선택: 분석 옵션
+    "checkAllRules": true, // 모든 룰 검사 여부
+    "specificRuleIds": ["N-01", "N-04"], // 특정 룰만 검사 (checkAllRules: false일 때)
+    "returnRawMatches": false, // 원본 매칭 텍스트 반환 여부
+    "enableLogicalAnalysis": true, // 논리적 분석 활성화
+    "includeRecommendations": true // 권고사항 포함 여부
   }
 }
 ```
 
 #### 지원 장비 타입
+
 - **Cisco**: KISA(38) + CIS(11) + NW(42) = 91개 룰
 - **Juniper**: KISA(38) + NW(35) = 73개 룰
 - **HP**: NW(30) = 30개 룰
@@ -303,9 +322,11 @@ curl -X POST https://kisa-network-analyzer-production.up.railway.app/api/v1/conf
 특정 지침서의 룰 목록 조회
 
 #### URL 파라미터
+
 - `framework_id`: 지침서 ID (KISA, CIS, NW)
 
 #### 쿼리 파라미터
+
 - `includeExamples`: 예제 포함 여부 (기본값: false)
 - `deviceType`: 특정 장비 타입으로 필터링
 - `severity`: 심각도로 필터링 (상/중/하)
@@ -330,7 +351,16 @@ curl "http://localhost:5000/api/v1/frameworks/NW/rules?deviceType=Cisco&includeE
       "description": "장비 출고 시 설정된 기본 관리자 계정과 비밀번호를 변경하지 않고 사용하는지 점검",
       "severity": "상",
       "category": "계정 관리",
-      "deviceTypes": ["Cisco", "Alteon", "Passport", "Juniper", "Piolink", "HP", "Dasan", "Alcatel"],
+      "deviceTypes": [
+        "Cisco",
+        "Alteon",
+        "Passport",
+        "Juniper",
+        "Piolink",
+        "HP",
+        "Dasan",
+        "Alcatel"
+      ],
       "reference": "NW 가이드 NW-01 (상) 비밀번호 설정",
       "hasLogicalAnalysis": true,
       "framework": "NW",
@@ -360,6 +390,7 @@ curl "http://localhost:5000/api/v1/frameworks/NW/rules?deviceType=Cisco&includeE
 룰 목록 조회 (모든 지침서 통합 또는 특정 지침서)
 
 #### 쿼리 파라미터
+
 - `framework`: 지침서 필터 (기본값: KISA)
 - `deviceType`: 장비 타입 필터
 - `severity`: 심각도 필터 (상/중/하)
@@ -410,6 +441,7 @@ curl "http://localhost:5000/api/v1/rules?framework=KISA&severity=상&deviceType=
 지원되는 장비 타입 목록 조회
 
 #### 쿼리 파라미터
+
 - `framework`: 지침서별 지원 장비 조회 (기본값: KISA)
 
 #### 요청 예시
@@ -424,7 +456,16 @@ curl "http://localhost:5000/api/v1/device-types?framework=NW"
 {
   "success": true,
   "framework": "NW",
-  "deviceTypes": ["Cisco", "Juniper", "HP", "Piolink", "Radware", "Dasan", "Alcatel", "Extreme"],
+  "deviceTypes": [
+    "Cisco",
+    "Juniper",
+    "HP",
+    "Piolink",
+    "Radware",
+    "Dasan",
+    "Alcatel",
+    "Extreme"
+  ],
   "deviceInfo": {
     "Cisco": {
       "supportedRules": 42,
@@ -461,10 +502,10 @@ curl "http://localhost:5000/api/v1/device-types?framework=NW"
 
 ```json
 {
-  "line": "enable password cisco123",      // 필수: 분석할 설정 라인
-  "deviceType": "Cisco",                   // 필수: 장비 타입
-  "framework": "NW",                       // 선택: 지침서 (기본값: KISA)
-  "ruleIds": ["NW-01", "NW-02"]          // 선택: 특정 룰만 적용
+  "line": "enable password cisco123", // 필수: 분석할 설정 라인
+  "deviceType": "Cisco", // 필수: 장비 타입
+  "framework": "NW", // 선택: 지침서 (기본값: KISA)
+  "ruleIds": ["NW-01", "NW-02"] // 선택: 특정 룰만 적용
 }
 ```
 
@@ -522,6 +563,7 @@ curl -X POST http://localhost:5000/api/v1/analyze-line \
 분석 엔진 통계 정보 조회
 
 #### 쿼리 파라미터
+
 - `framework`: 특정 지침서 통계 (기본값: KISA)
 
 #### 요청 예시
@@ -580,43 +622,48 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ## 📊 지침서별 룰 비교
 
 ### 룰 수 비교
-| 지침서 | 총 룰 수 | 상급 | 중급 | 하급 | 특징 |
-|--------|----------|------|------|------|------|
-| **KISA** | 38개 | 14개 | 19개 | 5개 | 한국 표준, 종합적 |
-| **CIS** | 11개 | 6개 | 5개 | 0개 | AAA 중심, 상세함 |
-| **NW** | 42개 | 8개 | 30개 | 4개 | 물리보안 강화 |
+
+| 지침서   | 총 룰 수 | 상급 | 중급 | 하급 | 특징              |
+| -------- | -------- | ---- | ---- | ---- | ----------------- |
+| **KISA** | 38개     | 14개 | 19개 | 5개  | 한국 표준, 종합적 |
+| **CIS**  | 11개     | 6개  | 5개  | 0개  | AAA 중심, 상세함  |
+| **NW**   | 42개     | 8개  | 30개 | 4개  | 물리보안 강화     |
 
 ### 카테고리별 룰 분포
-| 카테고리 | KISA | CIS | NW | 총합 |
-|----------|------|-----|-----|------|
-| 계정 관리 | 3개 | 3개 | 4개 | 10개 |
-| 접근 관리 | 5개 | 3개 | 6개 | 14개 |
+
+| 카테고리  | KISA | CIS | NW   | 총합 |
+| --------- | ---- | --- | ---- | ---- |
+| 계정 관리 | 3개  | 3개 | 4개  | 10개 |
+| 접근 관리 | 5개  | 3개 | 6개  | 14개 |
 | 기능 관리 | 25개 | 0개 | 28개 | 53개 |
-| 로그 관리 | 4개 | 5개 | 3개 | 12개 |
-| 패치 관리 | 1개 | 0개 | 1개 | 2개 |
+| 로그 관리 | 4개  | 5개 | 3개  | 12개 |
+| 패치 관리 | 1개  | 0개 | 1개  | 2개  |
 
 ### 장비 지원 현황
-| 장비 | KISA | CIS | NW | 최대 룰 수 |
-|------|------|-----|-----|------------|
-| **Cisco** | ✅ 38개 | ✅ 11개 | ✅ 42개 | **91개** |
-| **Juniper** | ✅ 25개 | ❌ | ✅ 35개 | **60개** |
-| **HP** | ❌ | ❌ | ✅ 30개 | **30개** |
-| **Piolink** | ✅ 30개 | ❌ | ✅ 35개 | **65개** |
-| **Radware** | ✅ 25개 | ❌ | ✅ 20개 | **45개** |
+
+| 장비        | KISA    | CIS     | NW      | 최대 룰 수 |
+| ----------- | ------- | ------- | ------- | ---------- |
+| **Cisco**   | ✅ 38개 | ✅ 11개 | ✅ 42개 | **91개**   |
+| **Juniper** | ✅ 25개 | ❌      | ✅ 35개 | **60개**   |
+| **HP**      | ❌      | ❌      | ✅ 30개 | **30개**   |
+| **Piolink** | ✅ 30개 | ❌      | ✅ 35개 | **65개**   |
+| **Radware** | ✅ 25개 | ❌      | ✅ 20개 | **45개**   |
 
 ---
 
 ## 🔄 분석 모드
 
 ### 1. 단일 지침서 분석 (기본)
+
 ```json
 {
   "framework": "KISA",
-  "options": {"checkAllRules": true}
+  "options": { "checkAllRules": true }
 }
 ```
 
 ### 2. 특정 룰만 분석
+
 ```json
 {
   "framework": "NW",
@@ -628,6 +675,7 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ```
 
 ### 3. 논리적 분석 활성화
+
 ```json
 {
   "options": {
@@ -642,6 +690,7 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ## ⚠️ 오류 코드
 
 ### 400 Bad Request
+
 ```json
 {
   "success": false,
@@ -652,6 +701,7 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ```
 
 ### 404 Not Found
+
 ```json
 {
   "success": false,
@@ -661,6 +711,7 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ```
 
 ### 501 Not Implemented
+
 ```json
 {
   "success": false,
@@ -670,6 +721,7 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ```
 
 ### 500 Internal Server Error
+
 ```json
 {
   "success": false,
@@ -684,17 +736,20 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ## 📈 성능 정보
 
 ### 분석 속도
+
 - **소형 설정** (< 100 라인): ~0.05초
-- **중형 설정** (100-1000 라인): ~0.1-0.5초  
+- **중형 설정** (100-1000 라인): ~0.1-0.5초
 - **대형 설정** (1000-5000 라인): ~0.5-2초
 - **초대형 설정** (> 5000 라인): ~2-10초
 
 ### 메모리 사용량
+
 - **기본 분석**: ~50MB
 - **논리적 분석**: ~100MB
 - **다중 지침서**: ~150MB
 
 ### 동시 처리
+
 - **권장 동시 요청**: 10개 이하
 - **최대 설정 크기**: 50MB
 - **최대 분석 시간**: 5분 (타임아웃)
@@ -704,6 +759,7 @@ curl "http://localhost:5000/api/v1/statistics?framework=NW"
 ## 🔧 사용 예시
 
 ### Python 클라이언트 예시
+
 ```python
 import requests
 
@@ -722,8 +778,9 @@ for issue in result['results']:
 ```
 
 ### JavaScript 클라이언트 예시
+
 ```javascript
-const analyzeConfig = async (configText) => {
+const analyzeConfig = async configText => {
   const response = await fetch('/api/v1/config-analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -731,10 +788,10 @@ const analyzeConfig = async (configText) => {
       deviceType: 'HP',
       framework: 'NW',
       configText: configText,
-      options: { checkAllRules: true }
-    })
+      options: { checkAllRules: true },
+    }),
   });
-  
+
   const result = await response.json();
   console.log(`분석 완료: ${result.issuesFound}개 취약점`);
   return result;
@@ -742,6 +799,7 @@ const analyzeConfig = async (configText) => {
 ```
 
 ### cURL 배치 분석 예시
+
 ```bash
 #!/bin/bash
 # 여러 설정 파일 일괄 분석
@@ -764,12 +822,14 @@ done
 ## 📋 체크리스트
 
 ### API 연동 전 확인사항
+
 - [ ] 지원 장비 타입 확인 (`GET /device-types`)
 - [ ] 지원 지침서 확인 (`GET /frameworks`)
 - [ ] 설정 파일 크기 제한 (50MB 이하)
 - [ ] 네트워크 연결 및 포트 접근 가능 여부
 
 ### 분석 결과 해석
+
 - [ ] `success` 필드로 요청 성공 여부 확인
 - [ ] `framework` 필드로 사용된 지침서 확인
 - [ ] `issuesFound` 개수와 `results` 배열 길이 일치 확인
@@ -777,6 +837,7 @@ done
 - [ ] 카테고리별 취약점 분석 (`category`)
 
 ### 성능 최적화
+
 - [ ] 대용량 설정은 청크 단위로 분할 분석
 - [ ] 자주 사용하는 룰만 `specificRuleIds`로 지정
 - [ ] `returnRawMatches: false`로 응답 크기 최소화
@@ -787,11 +848,13 @@ done
 ## 🤝 지원
 
 ### 문의 채널
+
 - **기술 지원**: [GitHub Issues](https://github.com/your-org/kisa-network-analyzer/issues)
 - **API 문서**: [Wiki](https://github.com/your-org/kisa-network-analyzer/wiki)
 - **이메일**: security@example.com
 
 ### 버전 호환성
+
 - **v1.0.x**: KISA 지침서만 지원
 - **v1.1.x**: CIS 지침서 추가
 - **v1.2.x**: 다중 지침서 아키텍처
@@ -799,4 +862,4 @@ done
 
 ---
 
-*📝 이 문서는 API 버전 1.3.0 기준으로 작성되었습니다. 최신 정보는 `/health` 엔드포인트를 통해 확인하세요.*
+_📝 이 문서는 API 버전 1.3.0 기준으로 작성되었습니다. 최신 정보는 `/health` 엔드포인트를 통해 확인하세요._

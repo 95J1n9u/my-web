@@ -10,27 +10,19 @@ const FileUpload = ({
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedDeviceType, setSelectedDeviceType] = useState('');
-  const [selectedFramework, setSelectedFramework] = useState('KISA');
+  const [selectedFrameworks, setSelectedFrameworks] = useState([]); // 다중 선택으로 변경
   const [selectedFile, setSelectedFile] = useState(null);
   const [frameworks, setFrameworks] = useState([]);
   const [deviceTypes, setDeviceTypes] = useState([]);
   const [loadingFrameworks, setLoadingFrameworks] = useState(true);
-  const [enableComparison, setEnableComparison] = useState(false);
-  const [comparisonFrameworks, setComparisonFrameworks] = useState(['KISA']);
   const fileInputRef = useRef(null);
+  const [showAllDeviceTypes, setShowAllDeviceTypes] = useState(false);
 
   // 컴포넌트 마운트 시 지침서 목록 로드
   useEffect(() => {
     loadFrameworks();
     loadDeviceTypes();
   }, []);
-
-  // 선택된 지침서 변경 시 장비 타입 목록 업데이트
-  useEffect(() => {
-    if (selectedFramework) {
-      loadDeviceTypes(selectedFramework);
-    }
-  }, [selectedFramework]);
 
   const loadFrameworks = async () => {
     try {
@@ -50,14 +42,6 @@ const FileUpload = ({
         });
 
         setFrameworks(updatedFrameworks);
-
-        // 기본값으로 첫 번째 구현된 지침서 선택
-        const implementedFramework = updatedFrameworks.find(
-          f => f.isImplemented
-        );
-        if (implementedFramework) {
-          setSelectedFramework(implementedFramework.id);
-        }
       }
     } catch (error) {
       console.error('지침서 목록 로드 실패:', error);
@@ -84,7 +68,7 @@ const FileUpload = ({
           id: 'NW',
           name: 'NW 네트워크 보안 지침서',
           description: '네트워크 보안 강화 지침서',
-          isImplemented: true, // NW를 구현됨으로 설정
+          isImplemented: true,
           status: 'active',
           total_rules: 42,
         },
@@ -103,15 +87,15 @@ const FileUpload = ({
     }
   };
 
-  const loadDeviceTypes = async (framework = 'KISA') => {
+  const loadDeviceTypes = async () => {
     try {
-      const response = await analysisService.getDeviceTypes(framework);
+      const response = await analysisService.getDeviceTypes();
       if (response.success) {
         setDeviceTypes(response.deviceTypes);
       }
     } catch (error) {
       console.error('장비 타입 로드 실패:', error);
-      // 기본값 설정 - API 명세서에 따른 전체 장비 타입
+      // 기본값 설정 - 새로운 API 명세서에 따른 전체 장비 타입
       setDeviceTypes([
         'Cisco',
         'Juniper',
@@ -177,6 +161,30 @@ const FileUpload = ({
     }
   };
 
+  // 장비 타입 변경 시 지원되는 지침서만 유지
+  const handleDeviceTypeChange = deviceType => {
+    setSelectedDeviceType(deviceType);
+
+    // 선택된 장비 타입에 지원되지 않는 지침서들을 제거
+    const compatibleFrameworks = getCompatibleFrameworks(deviceType);
+    const compatibleFrameworkIds = compatibleFrameworks.map(f => f.id);
+    const filteredFrameworks = selectedFrameworks.filter(frameworkId =>
+      compatibleFrameworkIds.includes(frameworkId)
+    );
+    setSelectedFrameworks(filteredFrameworks);
+  };
+
+  // 지침서 선택/해제 처리
+  const handleFrameworkToggle = (frameworkId, isSelected) => {
+    if (isSelected) {
+      setSelectedFrameworks([...selectedFrameworks, frameworkId]);
+    } else {
+      setSelectedFrameworks(
+        selectedFrameworks.filter(id => id !== frameworkId)
+      );
+    }
+  };
+
   const handleAnalyzeClick = () => {
     if (!selectedFile) {
       alert('분석할 파일을 선택해주세요.');
@@ -186,30 +194,23 @@ const FileUpload = ({
       alert('장비 타입을 선택해주세요.');
       return;
     }
-    if (!selectedFramework && !enableComparison) {
-      alert('보안 지침서를 선택해주세요.');
+    if (selectedFrameworks.length === 0) {
+      alert('최소 1개 이상의 보안 지침서를 선택해주세요.');
       return;
     }
 
-    // 비교 분석 모드인 경우
-    if (enableComparison && comparisonFrameworks.length > 1) {
-      onFileUpload(
-        selectedFile,
-        selectedDeviceType,
-        null,
-        comparisonFrameworks
-      );
+    // 다중 지침서 분석 또는 단일 지침서 분석
+    if (selectedFrameworks.length > 1) {
+      onFileUpload(selectedFile, selectedDeviceType, null, selectedFrameworks);
     } else {
-      onFileUpload(selectedFile, selectedDeviceType, selectedFramework);
+      onFileUpload(selectedFile, selectedDeviceType, selectedFrameworks[0]);
     }
   };
 
   const handleReset = () => {
     setSelectedFile(null);
     setSelectedDeviceType('');
-    setSelectedFramework('KISA');
-    setEnableComparison(false);
-    setComparisonFrameworks(['KISA']);
+    setSelectedFrameworks([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -218,19 +219,8 @@ const FileUpload = ({
     }
   };
 
-  const handleComparisonFrameworkChange = (frameworkId, checked) => {
-    if (checked) {
-      setComparisonFrameworks([...comparisonFrameworks, frameworkId]);
-    } else {
-      setComparisonFrameworks(
-        comparisonFrameworks.filter(f => f !== frameworkId)
-      );
-    }
-  };
-
-  const getFrameworkInfo = frameworkId => {
-    return analysisService.getFrameworkInfo(frameworkId);
-  };
+  const getFrameworkInfo = frameworkId =>
+    analysisService.getFrameworkInfo(frameworkId);
 
   const deviceTypeOptions = [
     {
@@ -238,60 +228,70 @@ const FileUpload = ({
       label: 'Cisco IOS/IOS-XE',
       description: 'Cisco 라우터, 스위치 (최대 91룰)',
       frameworks: ['KISA', 'CIS', 'NW'],
+      isPrimary: true,
     },
     {
       value: 'Juniper',
       label: 'Juniper JunOS',
       description: 'Juniper 네트워크 장비 (최대 60룰)',
       frameworks: ['KISA', 'NW'],
+      isPrimary: true,
     },
     {
       value: 'HP',
       label: 'HP Networking',
       description: 'HP 네트워크 장비 (최대 30룰)',
       frameworks: ['NW'],
+      isPrimary: true,
     },
     {
       value: 'Piolink',
       label: 'Piolink',
       description: 'Piolink 로드밸런서 (최대 65룰)',
       frameworks: ['KISA', 'NW'],
+      isPrimary: false,
     },
     {
       value: 'Radware',
       label: 'Radware Alteon',
       description: 'Radware 로드밸런서 (최대 45룰)',
       frameworks: ['KISA', 'NW'],
+      isPrimary: false,
     },
     {
       value: 'Passport',
       label: 'Nortel Passport',
       description: 'Nortel/Avaya 장비 (최대 40룰)',
       frameworks: ['KISA', 'NW'],
+      isPrimary: false,
     },
     {
       value: 'Alteon',
       label: 'Alteon',
       description: 'Alteon 로드밸런서 (최대 38룰)',
       frameworks: ['KISA', 'NW'],
+      isPrimary: false,
     },
     {
       value: 'Dasan',
       label: 'Dasan',
       description: 'Dasan 네트워크 장비 (최대 25룰)',
       frameworks: ['NW'],
+      isPrimary: false,
     },
     {
       value: 'Alcatel',
       label: 'Alcatel',
       description: 'Alcatel 네트워크 장비 (최대 28룰)',
       frameworks: ['NW'],
+      isPrimary: false,
     },
     {
       value: 'Extreme',
       label: 'Extreme Networks',
       description: 'Extreme 네트워크 장비 (최대 25룰)',
       frameworks: ['NW'],
+      isPrimary: false,
     },
   ];
 
@@ -309,11 +309,11 @@ const FileUpload = ({
   ];
 
   // 선택된 장비 타입에 따른 지원 지침서 필터링
-  const getCompatibleFrameworks = () => {
-    if (!selectedDeviceType) return frameworks.filter(f => f.isImplemented);
+  const getCompatibleFrameworks = (deviceType = selectedDeviceType) => {
+    if (!deviceType) return frameworks.filter(f => f.isImplemented);
 
     const deviceOption = deviceTypeOptions.find(
-      opt => opt.value === selectedDeviceType
+      opt => opt.value === deviceType
     );
     if (!deviceOption) return frameworks.filter(f => f.isImplemented);
 
@@ -323,6 +323,8 @@ const FileUpload = ({
         framework.isImplemented
     );
   };
+
+  const compatibleFrameworks = getCompatibleFrameworks();
 
   return (
     <div className="space-y-6 pb-8">
@@ -362,175 +364,31 @@ const FileUpload = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upload and Configuration Area */}
         <div className="space-y-6">
-          {/* Framework Selection */}
+          {/* Device Type Selection - 첫 번째로 이동 */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              1. 보안 지침서 선택
-            </h3>
-
-            {loadingFrameworks ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                <span className="ml-2 text-sm text-gray-600">
-                  지침서 목록을 불러오는 중...
-                </span>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* 단일 지침서 선택 */}
-                <div className="space-y-3">
-                  {frameworks
-                    .filter(f => f.isImplemented) // 구현된 지침서만 표시
-                    .map(framework => {
-                      const info = getFrameworkInfo(framework.id);
-                      const isCompatible =
-                        !selectedDeviceType ||
-                        deviceTypeOptions
-                          .find(opt => opt.value === selectedDeviceType)
-                          ?.frameworks.includes(framework.id);
-
-                      return (
-                        <label
-                          key={framework.id}
-                          className={`flex items-start cursor-pointer p-3 rounded-lg border transition-colors ${
-                            selectedFramework === framework.id
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          } ${!isCompatible ? 'opacity-50' : ''}`}
-                        >
-                          <input
-                            type="radio"
-                            name="framework"
-                            value={framework.id}
-                            checked={selectedFramework === framework.id}
-                            onChange={e => setSelectedFramework(e.target.value)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
-                            disabled={isAnalyzing || !isCompatible}
-                          />
-                          <div className="ml-3 flex-1">
-                            <div className="flex items-center justify-between">
-                              <div className="text-sm font-medium text-gray-900">
-                                {framework.name}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {info && (
-                                  <span
-                                    className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
-                                    style={{
-                                      backgroundColor: info.color + '20',
-                                      color: info.color,
-                                    }}
-                                  >
-                                    {info.country}
-                                  </span>
-                                )}
-                                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                  사용 가능
-                                </span>
-                                {framework.total_rules && (
-                                  <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                    {framework.total_rules}룰
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {framework.description}
-                            </div>
-                            {!isCompatible && selectedDeviceType && (
-                              <div className="text-xs text-red-500 mt-1">
-                                {selectedDeviceType} 장비와 호환되지 않습니다
-                              </div>
-                            )}
-                          </div>
-                        </label>
-                      );
-                    })}
-                </div>
-
-                {/* 비교 분석 옵션 */}
-                <div className="pt-4 border-t border-gray-200">
-                  <label className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      checked={enableComparison}
-                      onChange={e => setEnableComparison(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      disabled={isAnalyzing}
-                    />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        다중 지침서 비교 분석
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        여러 보안 지침서의 결과를 동시에 비교
-                      </div>
-                    </div>
-                  </label>
-
-                  {enableComparison && (
-                    <div className="mt-3 pl-7 space-y-2">
-                      {getCompatibleFrameworks().map(framework => (
-                        <label
-                          key={framework.id}
-                          className="flex items-center space-x-2"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={comparisonFrameworks.includes(
-                              framework.id
-                            )}
-                            onChange={e =>
-                              handleComparisonFrameworkChange(
-                                framework.id,
-                                e.target.checked
-                              )
-                            }
-                            className="w-3 h-3 text-blue-600 border-gray-300 focus:ring-blue-500"
-                            disabled={isAnalyzing}
-                          />
-                          <span className="text-sm text-gray-700">
-                            {framework.name}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            ({framework.total_rules}룰)
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Device Type Selection */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              2. 장비 타입 선택
+              1. 장비 타입 선택
             </h3>
             <div className="space-y-3">
-              {deviceTypeOptions.map(option => {
-                const isCompatible = selectedFramework
-                  ? option.frameworks.includes(selectedFramework)
-                  : true;
-                return (
+              {deviceTypeOptions
+                .filter(option => showAllDeviceTypes || option.isPrimary)
+                .map(option => (
                   <label
                     key={option.value}
                     className={`flex items-start cursor-pointer p-3 rounded-lg border transition-colors ${
                       selectedDeviceType === option.value
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    } ${!isCompatible ? 'opacity-50' : ''}`}
+                    }`}
                   >
                     <input
                       type="radio"
                       name="deviceType"
                       value={option.value}
                       checked={selectedDeviceType === option.value}
-                      onChange={e => setSelectedDeviceType(e.target.value)}
+                      onChange={e => handleDeviceTypeChange(e.target.value)}
                       className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
-                      disabled={isAnalyzing || !isCompatible}
+                      disabled={isAnalyzing}
                     />
                     <div className="ml-3 flex-1">
                       <div className="flex items-center justify-between">
@@ -558,15 +416,55 @@ const FileUpload = ({
                       <div className="text-xs text-gray-500 mt-1">
                         {option.description}
                       </div>
-                      {!isCompatible && selectedFramework && (
-                        <div className="text-xs text-red-500 mt-1">
-                          {selectedFramework} 지침서와 호환되지 않습니다
-                        </div>
-                      )}
                     </div>
                   </label>
-                );
-              })}
+                ))}
+
+              {/* 더보기/접기 버튼 */}
+              <button
+                type="button"
+                onClick={() => setShowAllDeviceTypes(!showAllDeviceTypes)}
+                className="w-full flex items-center justify-center px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                disabled={isAnalyzing}
+              >
+                {showAllDeviceTypes ? (
+                  <>
+                    <svg
+                      className="w-4 h-4 mr-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
+                    </svg>
+                    간단히 보기 (
+                    {deviceTypeOptions.filter(opt => opt.isPrimary).length}개)
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4 mr-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                    더 많은 장비 보기 (+
+                    {deviceTypeOptions.filter(opt => !opt.isPrimary).length}개)
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Device Type Guide */}
@@ -584,6 +482,150 @@ const FileUpload = ({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Framework Selection - 두 번째로 이동 */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              2. 보안 지침서 선택
+              {selectedDeviceType && (
+                <span className="text-sm font-normal text-gray-500 ml-2">
+                  ({selectedDeviceType} 지원 지침서)
+                </span>
+              )}
+            </h3>
+
+            {!selectedDeviceType ? (
+              <div className="text-center py-8">
+                <svg
+                  className="w-12 h-12 text-gray-400 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p className="text-gray-500">먼저 장비 타입을 선택해주세요</p>
+              </div>
+            ) : loadingFrameworks ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-sm text-gray-600">
+                  지침서 목록을 불러오는 중...
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {compatibleFrameworks.map(framework => {
+                  const info = getFrameworkInfo(framework.id);
+                  const isSelected = selectedFrameworks.includes(framework.id);
+
+                  return (
+                    <label
+                      key={framework.id}
+                      className={`flex items-start cursor-pointer p-3 rounded-lg border transition-colors ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={e =>
+                          handleFrameworkToggle(framework.id, e.target.checked)
+                        }
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-1"
+                        disabled={isAnalyzing}
+                      />
+                      <div className="ml-3 flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium text-gray-900">
+                            {framework.name}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {info && (
+                              <span
+                                className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
+                                style={{
+                                  backgroundColor: info.color + '20',
+                                  color: info.color,
+                                }}
+                              >
+                                {info.country}
+                              </span>
+                            )}
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                              사용 가능
+                            </span>
+                            {framework.total_rules && (
+                              <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                {framework.total_rules}룰
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {framework.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+
+                {compatibleFrameworks.length === 0 && (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 text-sm">
+                      선택한 장비 타입에 지원되는 지침서가 없습니다.
+                    </p>
+                  </div>
+                )}
+
+                {/* Selection Summary */}
+                {selectedFrameworks.length > 0 && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="text-sm font-medium text-blue-900 mb-2">
+                      선택된 지침서: {selectedFrameworks.length}개
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedFrameworks.map(frameworkId => {
+                        const framework = frameworks.find(
+                          f => f.id === frameworkId
+                        );
+                        const info = getFrameworkInfo(frameworkId);
+                        return (
+                          <span
+                            key={frameworkId}
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800"
+                          >
+                            {info && (
+                              <span
+                                className="w-2 h-2 rounded-full mr-1"
+                                style={{ backgroundColor: info.color }}
+                              />
+                            )}
+                            {frameworkId}
+                            <span className="ml-1">
+                              ({framework?.total_rules}룰)
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <div className="text-xs text-blue-700 mt-2">
+                      {selectedFrameworks.length === 1
+                        ? '단일 지침서 분석이 수행됩니다.'
+                        : '다중 지침서 비교 분석이 수행됩니다.'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* File Upload Area */}
@@ -683,13 +725,13 @@ const FileUpload = ({
               disabled={
                 !selectedFile ||
                 !selectedDeviceType ||
-                (!selectedFramework && !enableComparison) ||
+                selectedFrameworks.length === 0 ||
                 isAnalyzing
               }
               className={`flex-1 flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors duration-200 ${
                 selectedFile &&
                 selectedDeviceType &&
-                (selectedFramework || enableComparison) &&
+                selectedFrameworks.length > 0 &&
                 !isAnalyzing
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -715,8 +757,8 @@ const FileUpload = ({
                       d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
                     />
                   </svg>
-                  {enableComparison && comparisonFrameworks.length > 1
-                    ? '비교 분석 시작'
+                  {selectedFrameworks.length > 1
+                    ? '다중 지침서 비교 분석 시작'
                     : '보안 분석 시작'}
                 </>
               )}
@@ -750,9 +792,9 @@ const FileUpload = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">
-                    {enableComparison
-                      ? '다중 지침서 분석...'
-                      : `${selectedFramework} 지침서 적용...`}
+                    {selectedFrameworks.length > 1
+                      ? `${selectedFrameworks.length}개 지침서 분석...`
+                      : `${selectedFrameworks[0]} 지침서 적용...`}
                   </span>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                 </div>
@@ -779,80 +821,73 @@ const FileUpload = ({
 
         {/* Information Panel */}
         <div className="space-y-6">
-          {/* Selected Framework Details */}
-          {selectedFramework && !enableComparison && (
+          {/* Selected Device Type Details */}
+          {selectedDeviceType && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                선택된 보안 지침서
+                선택된 장비 정보
               </h3>
               {(() => {
-                const framework = frameworks.find(
-                  f => f.id === selectedFramework
+                const deviceOption = deviceTypeOptions.find(
+                  opt => opt.value === selectedDeviceType
                 );
-                const info = getFrameworkInfo(selectedFramework);
-                if (!framework) return null;
+                if (!deviceOption) return null;
 
                 return (
                   <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="text-sm font-medium text-gray-900">
-                        {framework.name}
-                      </div>
-                      {info && (
-                        <span
-                          className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
-                          style={{
-                            backgroundColor: info.color + '20',
-                            color: info.color,
-                          }}
-                        >
-                          {info.organization}
-                        </span>
-                      )}
+                    <div className="text-sm font-medium text-gray-900">
+                      {deviceOption.label}
                     </div>
                     <p className="text-sm text-gray-600">
-                      {framework.description}
+                      {deviceOption.description}
                     </p>
-                    {framework.total_rules && (
-                      <div className="text-sm text-gray-500">
-                        총 {framework.total_rules}개 보안 룰셋
-                      </div>
-                    )}
-                    {info && info.categories && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {info.categories.slice(0, 3).map((category, index) => (
+                    <div className="text-sm text-gray-500">
+                      지원 지침서: {deviceOption.frameworks.join(', ')}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {deviceOption.frameworks.map(fw => {
+                        const fwInfo = getFrameworkInfo(fw);
+                        const framework = frameworks.find(f => f.id === fw);
+                        return (
                           <span
-                            key={index}
-                            className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded"
+                            key={fw}
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded"
+                            style={{
+                              backgroundColor: fwInfo?.color + '20',
+                              color: fwInfo?.color,
+                            }}
                           >
-                            {category}
+                            {fw}
+                            {framework?.total_rules &&
+                              ` (${framework.total_rules}룰)`}
                           </span>
-                        ))}
-                        {info.categories.length > 3 && (
-                          <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                            +{info.categories.length - 3}개
-                          </span>
-                        )}
-                      </div>
-                    )}
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })()}
             </div>
           )}
 
-          {/* Comparison Summary */}
-          {enableComparison && (
+          {/* Framework Selection Summary */}
+          {selectedFrameworks.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                비교 분석 요약
+                분석 요약
               </h3>
               <div className="space-y-3">
                 <div className="text-sm text-gray-600">
-                  선택된 지침서: {comparisonFrameworks.length}개
+                  분석 모드:{' '}
+                  {selectedFrameworks.length === 1
+                    ? '단일 지침서 분석'
+                    : '다중 지침서 비교 분석'}
+                </div>
+                <div className="text-sm text-gray-600">
+                  선택된 지침서: {selectedFrameworks.length}개
                 </div>
                 <div className="space-y-2">
-                  {comparisonFrameworks.map(frameworkId => {
+                  {selectedFrameworks.map(frameworkId => {
                     const framework = frameworks.find(
                       f => f.id === frameworkId
                     );
@@ -880,10 +915,12 @@ const FileUpload = ({
                     );
                   })}
                 </div>
-                <div className="text-xs text-gray-500 mt-3 p-2 bg-blue-50 rounded">
-                  💡 비교 분석은 각 지침서별로 개별 분석을 수행한 후 결과를
-                  종합하여 보여줍니다.
-                </div>
+                {selectedFrameworks.length > 1 && (
+                  <div className="text-xs text-gray-500 mt-3 p-2 bg-blue-50 rounded">
+                    💡 비교 분석은 각 지침서별로 개별 분석을 수행한 후 결과를
+                    종합하여 보여줍니다.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -964,7 +1001,7 @@ const FileUpload = ({
           {/* Analysis Features */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              다중 지침서 분석 기능
+              분석 기능
             </h3>
             <div className="space-y-3">
               <div className="flex items-start space-x-3">
@@ -983,10 +1020,56 @@ const FileUpload = ({
                 </svg>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    다양한 보안 지침서 지원
+                    장비별 최적화된 분석
                   </p>
                   <p className="text-xs text-gray-500">
-                    KISA, CIS, NW 등 국내외 주요 보안 표준
+                    각 장비 타입에 맞는 지침서만 선택 가능
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <svg
+                  className="w-5 h-5 text-green-500 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    다중 지침서 선택
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    여러 보안 표준을 동시에 적용하여 종합 분석
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <svg
+                  className="w-5 h-5 text-green-500 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    지능형 분석 엔진
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    논리 기반 분석과 패턴 매칭 결합
                   </p>
                 </div>
               </div>
@@ -1010,52 +1093,6 @@ const FileUpload = ({
                   </p>
                   <p className="text-xs text-gray-500">
                     Cisco부터 HP, Dasan까지 10개 브랜드
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <svg
-                  className="w-5 h-5 text-green-500 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    지침서 간 비교 분석
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    여러 지침서의 결과를 동시에 비교
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <svg
-                  className="w-5 h-5 text-green-500 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    논리 기반 분석 엔진
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    단순 패턴 매칭을 넘어선 지능형 분석
                   </p>
                 </div>
               </div>
