@@ -16,7 +16,7 @@ const FileUpload = ({
   const [deviceTypes, setDeviceTypes] = useState([]);
   const [loadingFrameworks, setLoadingFrameworks] = useState(true);
   const fileInputRef = useRef(null);
-  const [showAllDeviceTypes, setShowAllDeviceTypes] = useState(false); 
+  const [showAllDeviceTypes, setShowAllDeviceTypes] = useState(false);
 
   // 컴포넌트 마운트 시 지침서 목록 로드
   useEffect(() => {
