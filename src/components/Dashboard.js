@@ -634,17 +634,17 @@ const Dashboard = ({
                 {/* Framework specific features */}
                 {framework.id === 'KISA' && (
                   <div className="mt-2 text-xs text-blue-600">
-                    ✓ 종합 보안 분석 • AAA 포함
+                    ✓ 국내 기준 준수(21년)
                   </div>
                 )}
                 {framework.id === 'CIS' && (
                   <div className="mt-2 text-xs text-orange-600">
-                    ✓ 인증/권한 중심 • 글로벌 표준
+                    ✓ 구체적인 설정 • 실무적 보안
                   </div>
                 )}
                 {framework.id === 'NW' && (
                   <div className="mt-2 text-xs text-green-600">
-                    ✓ 물리 보안 강화 • 최다 룰셋
+                    ✓ 강화된 점검 • 최신 기준(25년)
                   </div>
                 )}
               </div>
