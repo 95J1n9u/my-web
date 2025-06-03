@@ -16,7 +16,7 @@ const FileUpload = ({
   const [deviceTypes, setDeviceTypes] = useState([]);
   const [loadingFrameworks, setLoadingFrameworks] = useState(true);
   const fileInputRef = useRef(null);
-  const [showAllDeviceTypes, setShowAllDeviceTypes] = useState(false);
+  const [showAllDeviceTypes, setShowAllDeviceTypes] = useState(false); 
 
   // 컴포넌트 마운트 시 지침서 목록 로드
   useEffect(() => {
@@ -983,9 +983,9 @@ const FileUpload = ({
                         {framework.total_rules}개
                       </div>
                       <div className="text-sm text-gray-500">
-                        {framework.id === 'KISA' && '종합적'}
-                        {framework.id === 'CIS' && 'AAA 중심'}
-                        {framework.id === 'NW' && '물리보안'}
+                        {framework.id === 'KISA' && '국내규제'}
+                        {framework.id === 'CIS' && '실무적 보안 강화'}
+                        {framework.id === 'NW' && '강화된 지침서'}
                       </div>
                       <div>
                         <span className="inline-flex px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
