@@ -16,6 +16,9 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
 
+  // 고유한 ID 생성을 위한 prefix
+  const modalId = `login-modal-${Date.now()}`;
+
   // Firebase 연결 테스트
   useEffect(() => {
     const testFirebaseConnection = async () => {
@@ -114,8 +117,17 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
       if (result.success) {
         setLoadingStep('완료!');
         console.log('인증 성공:', result.user);
-        onLoginSuccess(result.user);
-        onClose();
+
+        // 콜백 함수가 존재하는지 확인 후 호출
+        if (typeof onLoginSuccess === 'function') {
+          onLoginSuccess(result.user);
+        } else {
+          console.error('onLoginSuccess is not a function:', onLoginSuccess);
+        }
+
+        if (typeof onClose === 'function') {
+          onClose();
+        }
       } else {
         console.error('인증 실패:', result);
         setErrors({
@@ -148,8 +160,17 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
       if (result.success) {
         setLoadingStep('완료!');
         console.log('Google 로그인 성공:', result.user);
-        onLoginSuccess(result.user);
-        onClose();
+
+        // 콜백 함수가 존재하는지 확인 후 호출
+        if (typeof onLoginSuccess === 'function') {
+          onLoginSuccess(result.user);
+        } else {
+          console.error('onLoginSuccess is not a function:', onLoginSuccess);
+        }
+
+        if (typeof onClose === 'function') {
+          onClose();
+        }
       } else {
         console.error('Google 로그인 실패:', result);
         setErrors({
@@ -287,14 +308,14 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
               <div>
                 <label
-                  htmlFor="resetEmail"
+                  htmlFor={`${modalId}-resetEmail`}
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   이메일
                 </label>
                 <input
                   type="email"
-                  id="resetEmail"
+                  id={`${modalId}-resetEmail`}
                   value={resetEmail}
                   onChange={e => setResetEmail(e.target.value)}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
@@ -387,14 +408,14 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                 {!isLogin && (
                   <div>
                     <label
-                      htmlFor="displayName"
+                      htmlFor={`${modalId}-displayName`}
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       이름 *
                     </label>
                     <input
                       type="text"
-                      id="displayName"
+                      id={`${modalId}-displayName`}
                       name="displayName"
                       value={formData.displayName}
                       onChange={handleInputChange}
@@ -416,14 +437,14 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
                 <div>
                   <label
-                    htmlFor="email"
+                    htmlFor={`${modalId}-email`}
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     이메일 *
                   </label>
                   <input
                     type="email"
-                    id="email"
+                    id={`${modalId}-email`}
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
@@ -440,14 +461,14 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
                 <div>
                   <label
-                    htmlFor="password"
+                    htmlFor={`${modalId}-password`}
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     비밀번호 *
                   </label>
                   <input
                     type="password"
-                    id="password"
+                    id={`${modalId}-password`}
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
@@ -467,14 +488,14 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                 {!isLogin && (
                   <div>
                     <label
-                      htmlFor="confirmPassword"
+                      htmlFor={`${modalId}-confirmPassword`}
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
                       비밀번호 확인 *
                     </label>
                     <input
                       type="password"
-                      id="confirmPassword"
+                      id={`${modalId}-confirmPassword`}
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
