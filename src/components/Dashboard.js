@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'; // React import 수정
 import analysisService from '../services/analysisService';
-import LoginPrompt from './LoginPrompt';
 import { authService } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth'; // 이 줄 추가
 
@@ -334,8 +333,6 @@ const Dashboard = ({
         </p>
       </div>
 
-      {/* 로그인 유도 (비로그인 사용자에게만 표시) */}
-      {!user && <LoginPrompt onLoginSuccess={onLogin} />}
 
       {/* Service Status Alert */}
       {serviceStatus === 'offline' && (

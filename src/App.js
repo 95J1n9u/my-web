@@ -14,6 +14,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import AdminPanel from './components/AdminPanel'; // 추가
 import { useAuth } from './hooks/useAuth'; // 추가
 import UserDebugInfo from './components/UserDebugInfo'; // 추가 (개발용)
+import SignupPromptModal from './components/SignupPromptModal';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -28,6 +29,8 @@ function App() {
   const [serviceStatus, setServiceStatus] = useState('checking');
   const [engineInfo, setEngineInfo] = useState(null);
   const [analysisRecordCount, setAnalysisRecordCount] = useState(0);
+  const [showSignupPrompt, setShowSignupPrompt] = useState(false);
+  const [signupPromptDismissed, setSignupPromptDismissed] = useState(false);
 
   // Firebase 인증 상태 관리
   const [user, setUser] = useState(null);
@@ -460,7 +463,14 @@ const forceRefreshUserData = async () => {
         setAnalysisResults(finalResults);
       }
 
-      setActiveTab('results');
+      setActiveTab('results'); // 결과 화면으로 이동
+
+      // 로그인하지 않은 사용자에게 회원가입 유도 팝업 표시
+      if (!user && !signupPromptDismissed) {
+        setTimeout(() => {
+          setShowSignupPrompt(true);
+        }, 1000);
+      }
 
       // 로그인된 사용자의 분석 결과를 Firestore에 저장
       if (user?.uid && finalResults) {
@@ -558,7 +568,17 @@ const forceRefreshUserData = async () => {
       setIsAnalyzing(false);
     }
   };
+// 회원가입 유도 팝업 핸들러들
+const handleCloseSignupPrompt = () => {
+  setShowSignupPrompt(false);
+  setSignupPromptDismissed(true); // 세션 동안 다시 표시하지 않음
+};
 
+const handleSignupSuccess = (userData) => {
+  handleLoginSuccess(userData); // 기존 로그인 성공 핸들러 재사용
+  setShowSignupPrompt(false);
+  setSignupPromptDismissed(true);
+};
   const handleRetryAnalysis = () => {
     if (uploadedFile) {
       setActiveTab('upload');
@@ -811,10 +831,17 @@ const forceRefreshUserData = async () => {
       {/* 사용자 권한 디버깅 (개발 환경에서만) */}
       <UserDebugInfo user={user} />
 
-      
+      {/* 회원가입 유도 팝업 */}
+      <SignupPromptModal
+        isOpen={showSignupPrompt}
+        onClose={handleCloseSignupPrompt}
+        onLoginSuccess={handleSignupSuccess}
+        analysisResults={getCurrentResults()}
+/>
       {/* Firebase 연결 테스트 (개발 환경에서만) */}
       {/*process.env.NODE_ENV === 'development' && <FirebaseTest />*/}
     </div>
+    
   );
 }
 
