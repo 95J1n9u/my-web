@@ -63,8 +63,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
     // 비밀번호 검증
     if (!formData.password) {
       newErrors.password = '비밀번호를 입력해주세요.';
-    } else if (formData.password.length < 6) {
-      newErrors.password = '비밀번호는 6자 이상이어야 합니다.';
+    } else if (formData.password.length < 9) {
+      newErrors.password = '비밀번호는 9자 이상이어야 합니다.';
     }
 
     // 회원가입 추가 검증

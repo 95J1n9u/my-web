@@ -167,19 +167,22 @@ function App() {
     }
   };
 
-  // 분석 기록 수 로드 함수
+  // 🔁 새로고침 시 분석 횟수 로드
   const loadAnalysisRecordCount = async (uid) => {
     try {
-      console.log('분석 기록 수 로드 시작:', uid);
-      const result = await authService.getUserAnalyses(uid, 100); // 최대 100개로 제한
-      if (result.success) {
-        console.log('분석 기록 수 로드 성공:', result.analyses.length);
-        setAnalysisRecordCount(result.analyses.length);
+      const userDocRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        console.log('Firestore에서 분석 카운트 로드:', data.analysisCount);
+        setAnalysisRecordCount(data.analysisCount || 0);
       } else {
-        console.error('분석 기록 로드 실패:', result.error);
+        setAnalysisRecordCount(0);
       }
     } catch (error) {
-      console.error('Failed to load analysis record count:', error);
+      console.error('분석 카운트 로딩 실패:', error);
+      setAnalysisRecordCount(0);
     }
   };
 
