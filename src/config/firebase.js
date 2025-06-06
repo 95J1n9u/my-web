@@ -374,25 +374,58 @@ export const authService = {
     }
   },
 
-  // 사용자 분석 횟수 증가
+// 사용자 분석 횟수 증가
   incrementAnalysisCount: async uid => {
     try {
       checkFirebaseServices();
       debugLog('Incrementing analysis count', { uid });
       const userRef = doc(db, 'users', uid);
+      
+      // 현재 문서 가져오기
       const userDoc = await getDoc(userRef);
 
       if (userDoc.exists()) {
         const currentCount = userDoc.data().analysisCount || 0;
+        const newCount = currentCount + 1;
+        
         await updateDoc(userRef, {
-          analysisCount: currentCount + 1,
+          analysisCount: newCount,
           lastAnalysisAt: serverTimestamp(),
         });
-        debugLog('Analysis count incremented', { newCount: currentCount + 1 });
+        
+        debugLog('Analysis count incremented', { 
+          oldCount: currentCount, 
+          newCount: newCount 
+        });
+        
+        return {
+          success: true,
+          newCount: newCount,
+        };
+      } else {
+        // 문서가 없으면 생성
+        const initialData = {
+          uid: uid,
+          analysisCount: 1,
+          lastAnalysisAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        };
+        
+        await setDoc(userRef, initialData);
+        debugLog('User document created with analysis count', { count: 1 });
+        
+        return {
+          success: true,
+          newCount: 1,
+        };
       }
     } catch (error) {
       console.error('Error incrementing analysis count:', error);
       debugLog('Analysis count increment error', error);
+      return {
+        success: false,
+        error: error.message,
+      };
     }
   },
 

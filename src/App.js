@@ -38,7 +38,7 @@ function App() {
     new Set()
   );
 
-  // Firebase 인증 상태 변화 감지
+// Firebase 인증 상태 변화 감지
   useEffect(() => {
     if (!auth) {
       console.warn('Firebase Auth가 초기화되지 않았습니다.');
@@ -52,17 +52,55 @@ function App() {
       try {
         if (firebaseUser) {
           // 사용자가 로그인된 상태
-          const userData = {
+          console.log('Firebase 사용자 감지:', firebaseUser.displayName);
+          
+          // Firestore에서 사용자 추가 정보 가져오기
+          let userData = {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName || '사용자',
             photoURL: firebaseUser.photoURL,
             emailVerified: firebaseUser.emailVerified,
-            role: 'user', // 기본값, Firestore에서 실제 역할을 가져와야 함
+            role: 'user',
             lastLoginAt: new Date().toISOString(),
+            analysisCount: 0, // 기본값
+            preferences: {},
           };
 
+          try {
+            // Firestore에서 추가 사용자 정보 가져오기
+            const { getDoc, doc } = await import('firebase/firestore');
+            const { db } = await import('../config/firebase');
+            
+            if (db) {
+              const userDocRef = doc(db, 'users', firebaseUser.uid);
+              const userDoc = await getDoc(userDocRef);
+
+              if (userDoc.exists()) {
+                const firestoreData = userDoc.data();
+                console.log('Firestore 사용자 데이터 로드:', firestoreData);
+                
+                userData = {
+                  ...userData,
+                  analysisCount: firestoreData.analysisCount || 0,
+                  role: firestoreData.role || 'user',
+                  preferences: firestoreData.preferences || {},
+                };
+              } else {
+                console.log('Firestore에 사용자 데이터가 없음, 기본값 사용');
+              }
+            }
+          } catch (firestoreError) {
+            console.error('Firestore 데이터 로드 실패:', firestoreError);
+            // Firestore 로드 실패해도 Firebase Auth 정보는 사용
+          }
+
           setUser(userData);
+
+          // 분석 기록 수 로드
+          if (userData.uid) {
+            loadAnalysisRecordCount(userData.uid);
+          }
 
           // 로컬 스토리지에 사용자 기본 정보 저장 (보안상 최소한의 정보만)
           localStorage.setItem(
@@ -72,19 +110,22 @@ function App() {
               email: userData.email,
               displayName: userData.displayName,
               lastLogin: userData.lastLoginAt,
+              analysisCount: userData.analysisCount,
             })
           );
 
-          console.log('사용자 로그인 상태 확인:', userData.displayName);
+          console.log('사용자 로그인 상태 확인 완료:', userData);
         } else {
           // 사용자가 로그아웃된 상태
           setUser(null);
+          setAnalysisRecordCount(0);
           localStorage.removeItem('userSession');
           console.log('사용자 로그아웃 상태');
         }
       } catch (error) {
         console.error('사용자 정보 처리 오류:', error);
         setUser(null);
+        setAnalysisRecordCount(0);
       } finally {
         setAuthLoading(false);
       }
@@ -126,14 +167,56 @@ function App() {
     }
   };
 
+  // 분석 기록 수 로드 함수
   const loadAnalysisRecordCount = async (uid) => {
     try {
+      console.log('분석 기록 수 로드 시작:', uid);
       const result = await authService.getUserAnalyses(uid, 100); // 최대 100개로 제한
       if (result.success) {
+        console.log('분석 기록 수 로드 성공:', result.analyses.length);
         setAnalysisRecordCount(result.analyses.length);
+      } else {
+        console.error('분석 기록 로드 실패:', result.error);
       }
     } catch (error) {
       console.error('Failed to load analysis record count:', error);
+    }
+  };
+
+  // 사용자 정보 새로고침 함수 (분석 횟수 업데이트용)
+  const refreshUserData = async (uid) => {
+    try {
+      console.log('사용자 정보 새로고침 시작:', uid);
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../config/firebase');
+      
+      if (db && uid) {
+        const userDocRef = doc(db, 'users', uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const firestoreData = userDoc.data();
+          console.log('업데이트된 사용자 데이터:', firestoreData);
+          
+          setUser(prev => ({
+            ...prev,
+            analysisCount: firestoreData.analysisCount || 0,
+            preferences: firestoreData.preferences || {},
+          }));
+
+          // 로컬 스토리지도 업데이트
+          const existingSession = localStorage.getItem('userSession');
+          if (existingSession) {
+            const sessionData = JSON.parse(existingSession);
+            localStorage.setItem('userSession', JSON.stringify({
+              ...sessionData,
+              analysisCount: firestoreData.analysisCount || 0,
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('사용자 정보 새로고침 실패:', error);
     }
   };
 
@@ -143,6 +226,7 @@ function App() {
       const result = await authService.signOut();
       if (result.success) {
         setUser(null);
+        setAnalysisRecordCount(0); // 기록 수도 초기화
         // 분석 관련 상태도 초기화
         setAnalysisResults(null);
         setComparisonResults(null);
@@ -415,6 +499,11 @@ function App() {
 
           // 분석 횟수 증가
           await authService.incrementAnalysisCount(user.uid);
+
+          // 사용자 정보 새로고침 (Firestore에서 최신 정보 가져오기)
+          await refreshUserData(user.uid);
+
+          console.log('분석 완료 및 사용자 정보 업데이트 완료');
 
           // 사용자 상태 업데이트 (분석 횟수 증가 반영)
           setUser(prev => ({
