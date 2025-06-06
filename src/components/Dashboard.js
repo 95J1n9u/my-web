@@ -1,5 +1,6 @@
 import React from 'react';
 import analysisService from '../services/analysisService';
+import LoginPrompt from './LoginPrompt';
 
 const Dashboard = ({
   analysisResults,
@@ -10,6 +11,8 @@ const Dashboard = ({
   engineInfo,
   onNavigateToUpload,
   onNavigateToResults,
+  user,
+  onLogin,
 }) => {
   // 실제 분석 결과가 있으면 해당 데이터 사용, 없으면 기본값 사용
   const hasResults = analysisResults || comparisonResults;
@@ -254,6 +257,9 @@ const Dashboard = ({
         </p>
       </div>
 
+      {/* 로그인 유도 (비로그인 사용자에게만 표시) */}
+      {!user && <LoginPrompt onLoginSuccess={onLogin} />}
+
       {/* Service Status Alert */}
       {serviceStatus === 'offline' && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -277,6 +283,37 @@ const Dashboard = ({
               </p>
               <p className="text-sm text-red-700">
                 분석 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 로그인한 사용자 환영 메시지 */}
+      {user && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <svg
+              className="w-5 h-5 text-green-500 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-green-900">
+                환영합니다, {user.displayName || '사용자'}님!
+              </p>
+              <p className="text-sm text-green-700">
+                지금까지 {user.analysisCount || 0}회의 보안 분석을
+                완료하셨습니다. 분석 기록은 자동으로 저장되어 언제든지 확인할 수
+                있습니다.
               </p>
             </div>
           </div>
@@ -718,7 +755,7 @@ const Dashboard = ({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  11개
+                  89개
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
                   6개

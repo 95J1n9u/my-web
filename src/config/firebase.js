@@ -18,6 +18,14 @@ import {
   setDoc,
   getDoc,
   updateDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
+  addDoc,
+  deleteDoc,
+  getDocs,
+  where,
   serverTimestamp,
   connectFirestoreEmulator,
 } from 'firebase/firestore';
@@ -405,6 +413,234 @@ export const authService = {
       return {
         success: false,
         error: getErrorMessage(error.code),
+      };
+    }
+  },
+
+  // 분석 결과 저장 (새로 추가)
+  saveAnalysisResult: async (uid, analysisData) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Saving analysis result', { uid, analysisData });
+
+      // 분석 결과 데이터 구조화
+      const analysisDoc = {
+        userId: uid,
+        timestamp: serverTimestamp(),
+        deviceType: analysisData.deviceType,
+        framework: analysisData.framework,
+        fileName: analysisData.fileName,
+        fileSize: analysisData.fileSize,
+        isComparison: analysisData.isComparison || false,
+        comparisonFrameworks: analysisData.comparisonFrameworks || null,
+
+        // 분석 결과 요약
+        summary: {
+          totalChecks: analysisData.summary?.totalChecks || 0,
+          vulnerabilities: analysisData.summary?.vulnerabilities || 0,
+          highSeverity: analysisData.summary?.highSeverity || 0,
+          mediumSeverity: analysisData.summary?.mediumSeverity || 0,
+          lowSeverity: analysisData.summary?.lowSeverity || 0,
+          passed: analysisData.summary?.passed || 0,
+          securityScore: analysisData.summary?.securityScore || 0,
+        },
+
+        // 메타데이터
+        metadata: {
+          analysisTime: analysisData.metadata?.analysisTime || 0,
+          engineVersion: analysisData.metadata?.engineVersion || 'Unknown',
+          totalLines: analysisData.metadata?.totalLines || 0,
+          frameworkInfo: analysisData.metadata?.frameworkInfo || null,
+        },
+
+        // 취약점 목록 (처음 10개만 저장하여 용량 절약)
+        vulnerabilities: (analysisData.vulnerabilities || [])
+          .slice(0, 10)
+          .map(vuln => ({
+            id: vuln.id,
+            severity: vuln.severity,
+            type: vuln.type,
+            description: vuln.description,
+            ruleId: vuln.ruleId,
+            framework: vuln.framework,
+            line: vuln.line,
+          })),
+
+        // 저장 시간
+        createdAt: serverTimestamp(),
+      };
+
+      // Firestore에 저장
+      const analysesRef = collection(db, 'users', uid, 'analyses');
+      const docRef = await addDoc(analysesRef, analysisDoc);
+
+      debugLog('Analysis result saved successfully', { docId: docRef.id });
+
+      return {
+        success: true,
+        analysisId: docRef.id,
+      };
+    } catch (error) {
+      console.error('Error saving analysis result:', error);
+      debugLog('Analysis save error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 사용자의 분석 기록 조회 (새로 추가)
+  getUserAnalyses: async (uid, limitCount = 20) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching user analyses', { uid, limitCount });
+
+      const analysesRef = collection(db, 'users', uid, 'analyses');
+      const q = query(
+        analysesRef,
+        orderBy('timestamp', 'desc'),
+        limit(limitCount)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const analyses = [];
+
+      querySnapshot.forEach(doc => {
+        analyses.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+
+      debugLog('User analyses fetched successfully', {
+        count: analyses.length,
+      });
+
+      return {
+        success: true,
+        analyses: analyses,
+        count: analyses.length,
+      };
+    } catch (error) {
+      console.error('Error fetching user analyses:', error);
+      debugLog('Analyses fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+        analyses: [],
+      };
+    }
+  },
+
+  // 특정 분석 결과 삭제 (새로 추가)
+  deleteAnalysis: async (uid, analysisId) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Deleting analysis', { uid, analysisId });
+
+      const analysisRef = doc(db, 'users', uid, 'analyses', analysisId);
+      await deleteDoc(analysisRef);
+
+      debugLog('Analysis deleted successfully');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting analysis:', error);
+      debugLog('Analysis delete error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 사용자의 분석 통계 조회 (새로 추가)
+  getUserAnalyticsStats: async uid => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching user analytics stats', { uid });
+
+      const analysesRef = collection(db, 'users', uid, 'analyses');
+      const querySnapshot = await getDocs(analysesRef);
+
+      let stats = {
+        totalAnalyses: 0,
+        totalVulnerabilities: 0,
+        frameworkUsage: {},
+        deviceTypeUsage: {},
+        averageSecurityScore: 0,
+        lastAnalysisDate: null,
+        monthlyAnalyses: 0, // 최근 30일
+      };
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      let totalScore = 0;
+      let scoreCount = 0;
+
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        stats.totalAnalyses++;
+
+        // 취약점 수 누적
+        stats.totalVulnerabilities += data.summary?.vulnerabilities || 0;
+
+        // 지침서 사용 통계
+        const framework = data.framework;
+        if (framework) {
+          stats.frameworkUsage[framework] =
+            (stats.frameworkUsage[framework] || 0) + 1;
+        }
+
+        // 장비 타입 사용 통계
+        const deviceType = data.deviceType;
+        if (deviceType) {
+          stats.deviceTypeUsage[deviceType] =
+            (stats.deviceTypeUsage[deviceType] || 0) + 1;
+        }
+
+        // 보안 점수 평균 계산
+        if (data.summary?.securityScore) {
+          totalScore += data.summary.securityScore;
+          scoreCount++;
+        }
+
+        // 최근 30일 분석 수
+        if (data.timestamp && data.timestamp.toDate() > thirtyDaysAgo) {
+          stats.monthlyAnalyses++;
+        }
+
+        // 마지막 분석 날짜
+        if (data.timestamp) {
+          const analysisDate = data.timestamp.toDate();
+          if (
+            !stats.lastAnalysisDate ||
+            analysisDate > stats.lastAnalysisDate
+          ) {
+            stats.lastAnalysisDate = analysisDate;
+          }
+        }
+      });
+
+      // 평균 보안 점수 계산
+      if (scoreCount > 0) {
+        stats.averageSecurityScore = Math.round(totalScore / scoreCount);
+      }
+
+      debugLog('User analytics stats calculated', stats);
+
+      return {
+        success: true,
+        stats: stats,
+      };
+    } catch (error) {
+      console.error('Error fetching user analytics stats:', error);
+      debugLog('Analytics stats fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+        stats: null,
       };
     }
   },

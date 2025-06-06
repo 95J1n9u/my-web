@@ -5,6 +5,7 @@ import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import FileUpload from './components/FileUpload';
 import VulnerabilityResults from './components/VulnerabilityResults';
+import AnalysisHistory from './components/AnalysisHistory';
 import DebugPanel from './components/DebugPanel';
 import FirebaseTest from './components/FirebaseTest';
 import analysisService from './services/analysisService';
@@ -274,6 +275,9 @@ function App() {
         throw new Error('파일이 비어있거나 읽을 수 없습니다.');
       }
 
+      let finalResults = null;
+      let isComparison = false;
+
       // 비교 분석 모드인 경우
       if (comparisonFrameworks && comparisonFrameworks.length > 1) {
         console.log(
@@ -281,6 +285,7 @@ function App() {
           comparisonFrameworks
         );
 
+        isComparison = true;
         const comparisonResult = await analysisService.compareAnalysis(
           deviceType,
           configText,
@@ -300,10 +305,11 @@ function App() {
           }
         }
 
-        setComparisonResults({
+        finalResults = {
           ...comparisonResult,
           frameworks: transformedResults,
-        });
+        };
+        setComparisonResults(finalResults);
       } else {
         // 단일 지침서 분석
         const selectedFrameworkId = framework || selectedFramework;
@@ -319,17 +325,86 @@ function App() {
         );
         const transformedResult =
           analysisService.transformAnalysisResult(apiResult);
-        setAnalysisResults(transformedResult);
+
+        finalResults = transformedResult;
+        setAnalysisResults(finalResults);
       }
 
       setActiveTab('results');
 
-      // 로그인된 사용자의 분석 횟수 증가
-      if (user?.uid) {
+      // 로그인된 사용자의 분석 결과를 Firestore에 저장
+      if (user?.uid && finalResults) {
         try {
+          const analysisData = {
+            deviceType: deviceType,
+            framework: isComparison
+              ? comparisonFrameworks.join(', ')
+              : framework || selectedFramework,
+            fileName: file.name,
+            fileSize: file.size,
+            isComparison: isComparison,
+            comparisonFrameworks: isComparison ? comparisonFrameworks : null,
+
+            // 결과 요약 (비교 분석의 경우 첫 번째 성공한 결과 사용)
+            summary: isComparison
+              ? Object.values(finalResults.frameworks).find(r => !r.error)
+                  ?.summary || {}
+              : finalResults.summary,
+
+            // 메타데이터
+            metadata: isComparison
+              ? Object.values(finalResults.frameworks).find(r => !r.error)
+                  ?.metadata || {}
+              : finalResults.metadata,
+
+            // 취약점 목록 (비교 분석의 경우 모든 프레임워크의 취약점 합계)
+            vulnerabilities: isComparison
+              ? Object.values(finalResults.frameworks)
+                  .filter(r => !r.error)
+                  .flatMap(r => r.vulnerabilities || [])
+                  .slice(0, 10) // 최대 10개만 저장
+              : finalResults.vulnerabilities || [],
+          };
+
+          // 보안 점수 계산
+          if (
+            analysisData.summary.totalChecks &&
+            analysisData.summary.totalChecks > 0
+          ) {
+            analysisData.summary.securityScore = Math.round(
+              ((analysisData.summary.totalChecks -
+                (analysisData.summary.vulnerabilities || 0)) /
+                analysisData.summary.totalChecks) *
+                100
+            );
+          }
+
+          console.log('Saving analysis result to Firestore:', analysisData);
+          const saveResult = await authService.saveAnalysisResult(
+            user.uid,
+            analysisData
+          );
+
+          if (saveResult.success) {
+            console.log(
+              'Analysis result saved successfully:',
+              saveResult.analysisId
+            );
+          } else {
+            console.error('Failed to save analysis result:', saveResult.error);
+          }
+
+          // 분석 횟수 증가
           await authService.incrementAnalysisCount(user.uid);
-        } catch (error) {
-          console.error('Failed to increment analysis count:', error);
+
+          // 사용자 상태 업데이트 (분석 횟수 증가 반영)
+          setUser(prev => ({
+            ...prev,
+            analysisCount: (prev.analysisCount || 0) + 1,
+          }));
+        } catch (saveError) {
+          console.error('Error saving analysis result:', saveError);
+          // 저장 실패해도 분석 결과는 표시
         }
       }
     } catch (error) {
@@ -505,6 +580,15 @@ function App() {
                 onRetry={handleRetryAnalysis}
                 onReset={resetAnalysis}
                 user={user}
+              />
+            )}
+            {activeTab === 'history' && user && (
+              <AnalysisHistory
+                user={user}
+                onSelectAnalysis={analysis => {
+                  // 선택한 분석 결과로 이동하는 기능 (추후 구현 가능)
+                  console.log('Selected analysis:', analysis);
+                }}
               />
             )}
           </div>
