@@ -98,6 +98,193 @@ const checkFirebaseServices = () => {
 
 // 인증 관련 서비스 함수들
 export const authService = {
+    // 사용자 권한 변경 (관리자만 가능)
+  updateUserRole: async (adminUid, targetUid, newRole) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Updating user role', { adminUid, targetUid, newRole });
+
+      // 관리자 권한 확인
+      const adminRef = doc(db, 'users', adminUid);
+      const adminDoc = await getDoc(adminRef);
+      
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return {
+          success: false,
+          error: '관리자 권한이 필요합니다.',
+        };
+      }
+
+      // 대상 사용자 권한 변경
+      const targetRef = doc(db, 'users', targetUid);
+      await updateDoc(targetRef, {
+        role: newRole,
+        updatedAt: serverTimestamp(),
+        updatedBy: adminUid,
+      });
+
+      debugLog('User role updated successfully');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      debugLog('User role update error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 모든 사용자 목록 조회 (관리자만 가능)
+  getAllUsers: async (adminUid, limitCount = 50) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching all users', { adminUid, limitCount });
+
+      // 관리자 권한 확인
+      const adminRef = doc(db, 'users', adminUid);
+      const adminDoc = await getDoc(adminRef);
+      
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return {
+          success: false,
+          error: '관리자 권한이 필요합니다.',
+          users: [],
+        };
+      }
+
+      // 모든 사용자 조회
+      const usersRef = collection(db, 'users');
+      const q = query(
+        usersRef,
+        orderBy('createdAt', 'desc'),
+        limit(limitCount)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const users = [];
+
+      querySnapshot.forEach(doc => {
+        const userData = doc.data();
+        users.push({
+          uid: doc.id,
+          email: userData.email,
+          displayName: userData.displayName,
+          role: userData.role || 'user',
+          createdAt: userData.createdAt,
+          lastLoginAt: userData.lastLoginAt,
+          analysisCount: userData.analysisCount || 0,
+          photoURL: userData.photoURL,
+          provider: userData.provider,
+        });
+      });
+
+      debugLog('Users fetched successfully', { count: users.length });
+
+      return {
+        success: true,
+        users: users,
+        count: users.length,
+      };
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      debugLog('Users fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+        users: [],
+      };
+    }
+  },
+
+  // 시스템 통계 조회 (관리자만 가능)
+  getSystemStats: async (adminUid) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching system stats', { adminUid });
+
+      // 관리자 권한 확인
+      const adminRef = doc(db, 'users', adminUid);
+      const adminDoc = await getDoc(adminRef);
+      
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return {
+          success: false,
+          error: '관리자 권한이 필요합니다.',
+        };
+      }
+
+      // 통계 데이터 수집
+      const usersRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersRef);
+
+      const stats = {
+        totalUsers: 0,
+        usersByRole: {
+          user: 0,
+          admin: 0,
+          moderator: 0,
+        },
+        totalAnalyses: 0,
+        usersByProvider: {
+          email: 0,
+          google: 0,
+        },
+        recentSignups: 0, // 최근 7일
+        activeUsers: 0, // 최근 30일 로그인
+      };
+
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      usersSnapshot.forEach(doc => {
+        const userData = doc.data();
+        stats.totalUsers++;
+
+        // 역할별 통계
+        const role = userData.role || 'user';
+        if (stats.usersByRole[role] !== undefined) {
+          stats.usersByRole[role]++;
+        }
+
+        // 분석 횟수 누적
+        stats.totalAnalyses += userData.analysisCount || 0;
+
+        // 가입 방법별 통계
+        const provider = userData.provider || 'email';
+        if (stats.usersByProvider[provider] !== undefined) {
+          stats.usersByProvider[provider]++;
+        }
+
+        // 최근 가입자
+        if (userData.createdAt && userData.createdAt.toDate() > sevenDaysAgo) {
+          stats.recentSignups++;
+        }
+
+        // 활성 사용자
+        if (userData.lastLoginAt && userData.lastLoginAt.toDate() > thirtyDaysAgo) {
+          stats.activeUsers++;
+        }
+      });
+
+      debugLog('System stats calculated', stats);
+
+      return {
+        success: true,
+        stats: stats,
+      };
+    } catch (error) {
+      console.error('Error fetching system stats:', error);
+      debugLog('System stats error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+  
   // 이메일/비밀번호 회원가입
   signUpWithEmail: async (email, password, displayName) => {
     try {

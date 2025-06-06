@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../hooks/useAuth'; // 추가
 
 const Sidebar = ({
   activeTab,
@@ -6,9 +7,10 @@ const Sidebar = ({
   serviceStatus,
   engineInfo,
   user,
-  analysisRecordCount = 0, // 새로 추가: 실제 저장된 기록 수
+  analysisRecordCount = 0,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const { isAdmin } = useAuth(user);
 
   const getStatusColor = () => {
     switch (serviceStatus) {
@@ -117,8 +119,39 @@ const Sidebar = ({
                 />
               </svg>
             ),
-            // 수정: 실제 저장된 기록 수 표시
             badge: analysisRecordCount > 0 ? analysisRecordCount : null,
+          },
+        ]
+      : []),
+    // 관리자에게만 보이는 메뉴 (추가)
+    ...(isAdmin()
+      ? [
+          {
+            id: 'admin',
+            name: '관리자 패널',
+            icon: (
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            ),
+            badge: '관리자',
+            isAdmin: true, // 관리자 메뉴 표시를 위한 플래그
           },
         ]
       : []),
@@ -199,8 +232,12 @@ const Sidebar = ({
             onClick={() => setActiveTab(item.id)}
             className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
               activeTab === item.id
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                ? item.isAdmin 
+                  ? 'bg-red-100 text-red-700' // 관리자 메뉴 활성화 시 빨간색
+                  : 'bg-blue-100 text-blue-700'
+                : item.isAdmin
+                  ? 'text-red-600 hover:bg-red-50 hover:text-red-700' // 관리자 메뉴 기본 스타일
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             }`}
           >
             <div className="flex items-center space-x-3">
@@ -208,7 +245,11 @@ const Sidebar = ({
               <span>{item.name}</span>
             </div>
             {item.badge && (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-blue-800 bg-blue-200 rounded-full">
+              <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${
+                item.isAdmin 
+                  ? 'text-red-800 bg-red-200'
+                  : 'text-blue-800 bg-blue-200'
+              }`}>
                 {item.badge}
               </span>
             )}

@@ -11,6 +11,8 @@ import FirebaseTest from './components/FirebaseTest';
 import analysisService from './services/analysisService';
 import { authService, auth } from './config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import AdminPanel from './components/AdminPanel'; // 추가
+import { useAuth } from './hooks/useAuth'; // 추가
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -701,15 +703,16 @@ function App() {
               <AnalysisHistory
                 user={user}
                 onSelectAnalysis={analysis => {
-                  // 선택한 분석 결과로 이동하는 기능 (추후 구현 가능)
                   console.log('Selected analysis:', analysis);
                 }}
-
-                // 분석 기록 삭제 시 카운트 업데이트를 위한 콜백
                 onRecordCountChange={(newCount) => {
                   setAnalysisRecordCount(newCount);
                 }}
               />
+            )}
+            {/* 관리자 패널 추가 */}
+            {activeTab === 'admin' && user && (
+              <AdminPanel user={user} />
             )}
           </div>
         </main>

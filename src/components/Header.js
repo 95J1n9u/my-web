@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import analysisService from '../services/analysisService';
 import LoginModal from './LoginModal';
+import { getRoleDisplayName, getRoleColor } from '../utils/permissions'; // 추가
 
 const Header = ({
   serviceStatus,
@@ -232,6 +233,12 @@ const Header = ({
                           </div>
                           <div className="text-xs text-gray-500 truncate">
                             {user.email}
+                          </div>
+                          {/* 권한 표시 추가 */}
+                          <div className="mt-1">
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>
+                              {getRoleDisplayName(user.role)}
+                            </span>
                           </div>
                         </div>
                       </div>
