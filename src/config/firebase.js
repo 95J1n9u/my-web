@@ -10,6 +10,7 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
+  connectAuthEmulator,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -18,6 +19,7 @@ import {
   getDoc,
   updateDoc,
   serverTimestamp,
+  connectFirestoreEmulator,
 } from 'firebase/firestore';
 
 // Firebase 설정
@@ -32,23 +34,68 @@ const firebaseConfig = {
 };
 
 // Firebase 초기화
-const app = initializeApp(firebaseConfig);
+let app;
+let auth;
+let db;
 
-// Firebase 서비스들
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
 
-// Google Auth Provider
+  console.log('Firebase 초기화 성공');
+} catch (error) {
+  console.error('Firebase 초기화 실패:', error);
+  // 기본값 설정으로 앱이 크래시되지 않도록 함
+  auth = null;
+  db = null;
+}
+
+// Firebase 서비스들을 안전하게 export
+export { auth, db };
+
+// 개발 환경에서 에뮬레이터 사용 (선택사항)
+// Firebase 에뮬레이터를 사용하려면 아래 주석을 해제하세요
+// if (process.env.NODE_ENV === 'development') {
+//   try {
+//     connectAuthEmulator(auth, "http://localhost:9099");
+//     connectFirestoreEmulator(db, 'localhost', 8080);
+//   } catch (error) {
+//     console.log('Firebase 에뮬레이터 연결 실패 (정상적인 경우입니다):', error.message);
+//   }
+// }
+
+// Google Auth Provider 설정
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',
+  hd: '', // 특정 도메인 제한이 있다면 여기에 설정
 });
+
+// 디버깅을 위한 로그 함수
+const debugLog = (message, data = null) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Firebase Debug] ${message}`, data || '');
+  }
+};
+
+// Firebase 서비스 가용성 확인 함수
+const checkFirebaseServices = () => {
+  if (!auth || !db) {
+    throw new Error(
+      'Firebase 서비스가 초기화되지 않았습니다. 페이지를 새로고침해주세요.'
+    );
+  }
+};
 
 // 인증 관련 서비스 함수들
 export const authService = {
   // 이메일/비밀번호 회원가입
   signUpWithEmail: async (email, password, displayName) => {
     try {
+      checkFirebaseServices();
+      debugLog('Starting email signup', { email, displayName });
+
       const result = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -56,17 +103,21 @@ export const authService = {
       );
       const user = result.user;
 
+      debugLog('User created successfully', { uid: user.uid });
+
       // 사용자 프로필 업데이트
       await updateProfile(user, {
         displayName: displayName,
       });
 
+      debugLog('Profile updated');
+
       // Firestore에 사용자 정보 저장
-      await setDoc(doc(db, 'users', user.uid), {
+      const userDocData = {
         uid: user.uid,
         email: user.email,
         displayName: displayName,
-        role: 'user', // 기본 역할
+        role: 'user',
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
         analysisCount: 0,
@@ -75,7 +126,13 @@ export const authService = {
           notifications: true,
           theme: 'light',
         },
-      });
+      };
+
+      debugLog('Saving user to Firestore', userDocData);
+
+      await setDoc(doc(db, 'users', user.uid), userDocData);
+
+      debugLog('User saved to Firestore successfully');
 
       return {
         success: true,
@@ -88,9 +145,12 @@ export const authService = {
       };
     } catch (error) {
       console.error('Sign up error:', error);
+      debugLog('Signup error details', error);
+
       return {
         success: false,
         error: getErrorMessage(error.code),
+        originalError: error,
       };
     }
   },
@@ -98,17 +158,49 @@ export const authService = {
   // 이메일/비밀번호 로그인
   signInWithEmail: async (email, password) => {
     try {
+      checkFirebaseServices();
+      debugLog('Starting email signin', { email });
+
       const result = await signInWithEmailAndPassword(auth, email, password);
       const user = result.user;
 
-      // 마지막 로그인 시간 업데이트
-      await updateDoc(doc(db, 'users', user.uid), {
-        lastLoginAt: serverTimestamp(),
-      });
+      debugLog('User signed in successfully', { uid: user.uid });
 
       // Firestore에서 사용자 추가 정보 가져오기
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      const userData = userDoc.exists() ? userDoc.data() : {};
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      debugLog('Fetching user data from Firestore');
+
+      let userData = {};
+      if (userDoc.exists()) {
+        userData = userDoc.data();
+        debugLog('User data found in Firestore', userData);
+
+        // 마지막 로그인 시간 업데이트
+        await updateDoc(userDocRef, {
+          lastLoginAt: serverTimestamp(),
+        });
+      } else {
+        debugLog('User data not found in Firestore, creating new document');
+        // 기존 사용자인데 Firestore에 데이터가 없는 경우 생성
+        userData = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || '사용자',
+          role: 'user',
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          analysisCount: 0,
+          preferences: {
+            defaultFramework: 'KISA',
+            notifications: true,
+            theme: 'light',
+          },
+        };
+
+        await setDoc(userDocRef, userData);
+      }
 
       return {
         success: true,
@@ -123,9 +215,12 @@ export const authService = {
       };
     } catch (error) {
       console.error('Sign in error:', error);
+      debugLog('Signin error details', error);
+
       return {
         success: false,
         error: getErrorMessage(error.code),
+        originalError: error,
       };
     }
   },
@@ -133,15 +228,30 @@ export const authService = {
   // Google 로그인
   signInWithGoogle: async () => {
     try {
+      checkFirebaseServices();
+      debugLog('Starting Google signin');
+
+      // 팝업 차단 확인
+      const popup = window.open('', '', 'width=1,height=1');
+      if (!popup || popup.closed || typeof popup.closed == 'undefined') {
+        throw new Error('popup-blocked');
+      }
+      popup.close();
+
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      // Firestore에서 기존 사용자 확인
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      debugLog('Google signin successful', { uid: user.uid });
 
+      // Firestore에서 기존 사용자 확인
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      let userData = {};
       if (!userDoc.exists()) {
+        debugLog('New Google user, creating Firestore document');
         // 새 사용자인 경우 Firestore에 정보 저장
-        await setDoc(doc(db, 'users', user.uid), {
+        userData = {
           uid: user.uid,
           email: user.email,
           displayName: user.displayName,
@@ -156,15 +266,18 @@ export const authService = {
             theme: 'light',
           },
           provider: 'google',
-        });
+        };
+
+        await setDoc(userDocRef, userData);
       } else {
+        debugLog('Existing Google user, updating last login');
+        userData = userDoc.data();
         // 기존 사용자의 마지막 로그인 시간 업데이트
-        await updateDoc(doc(db, 'users', user.uid), {
+        await updateDoc(userDocRef, {
           lastLoginAt: serverTimestamp(),
+          photoURL: user.photoURL, // 프로필 사진 업데이트
         });
       }
-
-      const userData = userDoc.exists() ? userDoc.data() : {};
 
       return {
         success: true,
@@ -180,9 +293,28 @@ export const authService = {
       };
     } catch (error) {
       console.error('Google sign in error:', error);
+      debugLog('Google signin error details', error);
+
+      // 특별한 Google 로그인 에러 처리
+      if (error.code === 'auth/popup-closed-by-user') {
+        return {
+          success: false,
+          error: '로그인 창이 닫혔습니다. 다시 시도해주세요.',
+        };
+      }
+
+      if (error.message === 'popup-blocked') {
+        return {
+          success: false,
+          error:
+            '팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.',
+        };
+      }
+
       return {
         success: false,
         error: getErrorMessage(error.code),
+        originalError: error,
       };
     }
   },
@@ -190,10 +322,14 @@ export const authService = {
   // 로그아웃
   signOut: async () => {
     try {
+      checkFirebaseServices();
+      debugLog('Starting signout');
       await signOut(auth);
+      debugLog('Signout successful');
       return { success: true };
     } catch (error) {
       console.error('Sign out error:', error);
+      debugLog('Signout error details', error);
       return {
         success: false,
         error: getErrorMessage(error.code),
@@ -204,10 +340,14 @@ export const authService = {
   // 비밀번호 재설정
   resetPassword: async email => {
     try {
+      checkFirebaseServices();
+      debugLog('Starting password reset', { email });
       await sendPasswordResetEmail(auth, email);
+      debugLog('Password reset email sent');
       return { success: true };
     } catch (error) {
       console.error('Password reset error:', error);
+      debugLog('Password reset error details', error);
       return {
         success: false,
         error: getErrorMessage(error.code),
@@ -217,12 +357,20 @@ export const authService = {
 
   // 인증 상태 변화 감지
   onAuthStateChanged: callback => {
-    return onAuthStateChanged(auth, callback);
+    try {
+      checkFirebaseServices();
+      return onAuthStateChanged(auth, callback);
+    } catch (error) {
+      console.error('Auth state listener error:', error);
+      return () => {}; // 빈 함수 반환하여 에러 방지
+    }
   },
 
   // 사용자 분석 횟수 증가
   incrementAnalysisCount: async uid => {
     try {
+      checkFirebaseServices();
+      debugLog('Incrementing analysis count', { uid });
       const userRef = doc(db, 'users', uid);
       const userDoc = await getDoc(userRef);
 
@@ -232,33 +380,95 @@ export const authService = {
           analysisCount: currentCount + 1,
           lastAnalysisAt: serverTimestamp(),
         });
+        debugLog('Analysis count incremented', { newCount: currentCount + 1 });
       }
     } catch (error) {
       console.error('Error incrementing analysis count:', error);
+      debugLog('Analysis count increment error', error);
     }
   },
 
   // 사용자 설정 업데이트
   updateUserPreferences: async (uid, preferences) => {
     try {
+      checkFirebaseServices();
+      debugLog('Updating user preferences', { uid, preferences });
       await updateDoc(doc(db, 'users', uid), {
         preferences: preferences,
         updatedAt: serverTimestamp(),
       });
+      debugLog('User preferences updated');
       return { success: true };
     } catch (error) {
       console.error('Error updating preferences:', error);
+      debugLog('Preferences update error', error);
       return {
         success: false,
         error: getErrorMessage(error.code),
       };
     }
   },
+
+  // Firebase 연결 테스트
+  testConnection: async () => {
+    try {
+      debugLog('Testing Firebase connection');
+
+      // Firebase 서비스 초기화 확인
+      if (!auth || !db) {
+        return {
+          success: false,
+          connected: false,
+          error: 'Firebase 서비스가 초기화되지 않음',
+          details: {
+            auth: !!auth,
+            firestore: !!db,
+          },
+        };
+      }
+
+      // Auth 연결 테스트
+      const authTest = auth.currentUser !== undefined;
+      debugLog('Auth connection test', { success: authTest });
+
+      // Firestore 연결 테스트 (간단한 방법)
+      let firestoreTest = false;
+      try {
+        // Firestore 앱 인스턴스 확인
+        firestoreTest = db.app !== undefined;
+        debugLog('Firestore connection test', { success: firestoreTest });
+      } catch (firestoreError) {
+        console.warn('Firestore connection test failed:', firestoreError);
+        debugLog('Firestore connection failed', firestoreError);
+      }
+
+      const overallSuccess = authTest && firestoreTest;
+      debugLog('Overall Firebase connection test', { success: overallSuccess });
+
+      return {
+        success: true,
+        connected: overallSuccess,
+        details: {
+          auth: authTest,
+          firestore: firestoreTest,
+        },
+      };
+    } catch (error) {
+      console.error('Firebase connection test failed:', error);
+      debugLog('Firebase connection test failed', error);
+      return {
+        success: false,
+        connected: false,
+        error: error.message,
+      };
+    }
+  },
 };
 
-// Firebase 에러 메시지 한국어 변환
+// Firebase 에러 메시지 한국어 변환 (확장됨)
 const getErrorMessage = errorCode => {
   const errorMessages = {
+    // 인증 관련
     'auth/user-disabled': '계정이 비활성화되었습니다.',
     'auth/user-not-found': '존재하지 않는 계정입니다.',
     'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
@@ -269,19 +479,39 @@ const getErrorMessage = errorCode => {
     'auth/too-many-requests':
       '너무 많은 시도가 있었습니다. 잠시 후 다시 시도해주세요.',
     'auth/network-request-failed': '네트워크 연결을 확인해주세요.',
+    'auth/operation-not-allowed': '이 인증 방법은 허용되지 않습니다.',
+    'auth/requires-recent-login': '보안을 위해 다시 로그인해주세요.',
+
+    // 팝업 관련
     'auth/popup-closed-by-user': '로그인 창이 사용자에 의해 닫혔습니다.',
     'auth/cancelled-popup-request': '로그인 요청이 취소되었습니다.',
     'auth/popup-blocked': '팝업이 차단되었습니다. 팝업을 허용해주세요.',
-    'auth/operation-not-allowed': '이 인증 방법은 허용되지 않습니다.',
+    'auth/unauthorized-domain':
+      '이 도메인은 Firebase 인증에 허가되지 않았습니다. Firebase Console에서 도메인을 추가해주세요.',
+
+    // Google 로그인 관련
     'auth/account-exists-with-different-credential':
       '다른 인증 방법으로 가입된 계정입니다.',
     'auth/credential-already-in-use': '이미 사용 중인 인증 정보입니다.',
+    'auth/auth-domain-config-required':
+      'Firebase 인증 도메인 설정이 필요합니다.',
+
+    // 일반적인 오류
     'auth/timeout': '요청 시간이 초과되었습니다.',
     'auth/missing-password': '비밀번호를 입력해주세요.',
     'auth/internal-error': '내부 오류가 발생했습니다. 다시 시도해주세요.',
+    'auth/invalid-api-key': 'Firebase API 키가 올바르지 않습니다.',
+    'auth/app-deleted': 'Firebase 앱이 삭제되었습니다.',
+    'auth/expired-action-code': '만료된 인증 코드입니다.',
+    'auth/invalid-action-code': '올바르지 않은 인증 코드입니다.',
+
+    // Firestore 관련
+    'firestore/permission-denied': 'Firestore 접근 권한이 없습니다.',
+    'firestore/unavailable': 'Firestore 서비스를 사용할 수 없습니다.',
+    'firestore/deadline-exceeded': 'Firestore 요청 시간이 초과되었습니다.',
   };
 
-  return errorMessages[errorCode] || '로그인 중 오류가 발생했습니다.';
+  return errorMessages[errorCode] || `인증 오류가 발생했습니다: ${errorCode}`;
 };
 
-export default app;
+export default app || null;

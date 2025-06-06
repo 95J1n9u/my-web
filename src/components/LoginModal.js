@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { authService } from '../config/firebase';
 
 const LoginModal = ({ onClose, onLoginSuccess }) => {
@@ -11,9 +11,26 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+
+  // Firebase 연결 테스트
+  useEffect(() => {
+    const testFirebaseConnection = async () => {
+      try {
+        const result = await authService.testConnection();
+        if (!result.connected) {
+          console.warn('Firebase 연결 테스트 실패:', result.error);
+        }
+      } catch (error) {
+        console.error('Firebase 연결 테스트 중 오류:', error);
+      }
+    };
+
+    testFirebaseConnection();
+  }, []);
 
   const handleInputChange = e => {
     const { name, value } = e.target;
@@ -72,18 +89,21 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
     setIsLoading(true);
     setErrors({});
+    setLoadingStep('인증 처리 중...');
 
     try {
       let result;
 
       if (isLogin) {
         // 로그인
+        setLoadingStep('로그인 중...');
         result = await authService.signInWithEmail(
           formData.email,
           formData.password
         );
       } else {
         // 회원가입
+        setLoadingStep('계정 생성 중...');
         result = await authService.signUpWithEmail(
           formData.email,
           formData.password,
@@ -92,37 +112,62 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
       }
 
       if (result.success) {
+        setLoadingStep('완료!');
+        console.log('인증 성공:', result.user);
         onLoginSuccess(result.user);
         onClose();
       } else {
-        setErrors({ submit: result.error });
+        console.error('인증 실패:', result);
+        setErrors({
+          submit: result.error,
+          details: result.originalError
+            ? `상세: ${result.originalError.message}`
+            : '',
+        });
       }
     } catch (error) {
       console.error('Authentication error:', error);
-      setErrors({ submit: '인증 중 오류가 발생했습니다.' });
+      setErrors({
+        submit: '인증 중 예기치 못한 오류가 발생했습니다.',
+        details: error.message,
+      });
     } finally {
       setIsLoading(false);
+      setLoadingStep('');
     }
   };
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setErrors({});
+    setLoadingStep('Google 로그인 중...');
 
     try {
       const result = await authService.signInWithGoogle();
 
       if (result.success) {
+        setLoadingStep('완료!');
+        console.log('Google 로그인 성공:', result.user);
         onLoginSuccess(result.user);
         onClose();
       } else {
-        setErrors({ submit: result.error });
+        console.error('Google 로그인 실패:', result);
+        setErrors({
+          submit: result.error,
+          details: result.originalError
+            ? `상세: ${result.originalError.message}`
+            : '',
+        });
       }
     } catch (error) {
       console.error('Google login error:', error);
-      setErrors({ submit: 'Google 로그인 중 오류가 발생했습니다.' });
+      setErrors({
+        submit: 'Google 로그인 중 오류가 발생했습니다.',
+        details: error.message,
+      });
     } finally {
       setIsLoading(false);
+      setLoadingStep('');
     }
   };
 
@@ -139,6 +184,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
     setIsLoading(true);
     setErrors({});
+    setLoadingStep('재설정 이메일 전송 중...');
 
     try {
       const result = await authService.resetPassword(resetEmail);
@@ -156,6 +202,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
       setErrors({ reset: '비밀번호 재설정 중 오류가 발생했습니다.' });
     } finally {
       setIsLoading(false);
+      setLoadingStep('');
     }
   };
 
@@ -218,6 +265,18 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
         {/* Body */}
         <div className="p-6">
+          {/* 로딩 상태 표시 */}
+          {isLoading && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-blue-600 font-medium">
+                  {loadingStep}
+                </span>
+              </div>
+            </div>
+          )}
+
           {showForgotPassword ? (
             /* 비밀번호 재설정 폼 */
             <div className="space-y-4">
@@ -435,9 +494,18 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                   </div>
                 )}
 
+                {/* 에러 메시지 */}
                 {errors.submit && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-600">{errors.submit}</p>
+                    <p className="text-sm text-red-600 font-medium">
+                      {errors.submit}
+                    </p>
+                    {errors.details &&
+                      process.env.NODE_ENV === 'development' && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {errors.details}
+                        </p>
+                      )}
                   </div>
                 )}
 

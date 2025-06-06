@@ -5,6 +5,8 @@ import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import FileUpload from './components/FileUpload';
 import VulnerabilityResults from './components/VulnerabilityResults';
+import DebugPanel from './components/DebugPanel';
+import FirebaseTest from './components/FirebaseTest';
 import analysisService from './services/analysisService';
 import { authService, auth } from './config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -36,13 +38,18 @@ function App() {
 
   // Firebase 인증 상태 변화 감지
   useEffect(() => {
+    if (!auth) {
+      console.warn('Firebase Auth가 초기화되지 않았습니다.');
+      setAuthLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
       setAuthLoading(true);
 
-      if (firebaseUser) {
-        // 사용자가 로그인된 상태
-        try {
-          // Firestore에서 추가 사용자 정보 가져오기
+      try {
+        if (firebaseUser) {
+          // 사용자가 로그인된 상태
           const userData = {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
@@ -67,18 +74,18 @@ function App() {
           );
 
           console.log('사용자 로그인 상태 확인:', userData.displayName);
-        } catch (error) {
-          console.error('사용자 정보 로드 오류:', error);
+        } else {
+          // 사용자가 로그아웃된 상태
           setUser(null);
+          localStorage.removeItem('userSession');
+          console.log('사용자 로그아웃 상태');
         }
-      } else {
-        // 사용자가 로그아웃된 상태
+      } catch (error) {
+        console.error('사용자 정보 처리 오류:', error);
         setUser(null);
-        localStorage.removeItem('userSession');
-        console.log('사용자 로그아웃 상태');
+      } finally {
+        setAuthLoading(false);
       }
-
-      setAuthLoading(false);
     });
 
     // 컴포넌트 언마운트 시 리스너 정리
@@ -561,6 +568,12 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Firebase 디버깅 패널 (개발 환경에서만) */}
+      <DebugPanel />
+
+      {/* Firebase 연결 테스트 (개발 환경에서만) */}
+      {process.env.NODE_ENV === 'development' && <FirebaseTest />}
     </div>
   );
 }
