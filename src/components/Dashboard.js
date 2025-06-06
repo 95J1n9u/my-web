@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'; // React import 수정
 import analysisService from '../services/analysisService';
 import LoginPrompt from './LoginPrompt';
 import { authService } from '../config/firebase';
+import { useAuth } from '../hooks/useAuth'; // 이 줄 추가
 
 const Dashboard = ({
   analysisResults,
@@ -14,7 +15,12 @@ const Dashboard = ({
   onNavigateToResults,
   user,
   onLogin,
+  onNavigateToAdmin,
 }) => {
+  
+  // useAuth 훅 추가
+  const { isAdmin, userRole, hasPermission } = useAuth(user);
+
   // 누적 통계 상태 추가
   const [cumulativeStats, setCumulativeStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
@@ -894,9 +900,76 @@ const Dashboard = ({
         </div>
         
       )}
+      {/* 권한 디버깅 섹션 (개발 환경에서만) */}
+      {process.env.NODE_ENV === 'development' && user && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h3 className="text-lg font-medium text-yellow-900 mb-4">
+            권한 디버깅 (개발용)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <strong>사용자 정보:</strong>
+              <div className="mt-2 space-y-1">
+                <div>UID: <code className="bg-yellow-100 px-1 rounded">{user.uid}</code></div>
+                <div>Role: <code className="bg-yellow-100 px-1 rounded">{user.role || 'undefined'}</code></div>
+                <div>Email: <code className="bg-yellow-100 px-1 rounded">{user.email}</code></div>
+                <div>DisplayName: <code className="bg-yellow-100 px-1 rounded">{user.displayName || 'N/A'}</code></div>
+                <div>Analysis Count: <code className="bg-yellow-100 px-1 rounded">{user.analysisCount || 0}</code></div>
+              </div>
+            </div>
+            <div>
+              <strong>권한 체크:</strong>
+              <div className="mt-2 space-y-1">
+                <div>useAuth isAdmin(): <span className={`font-medium ${isAdmin() ? 'text-red-600' : 'text-blue-600'}`}>{isAdmin() ? 'Yes' : 'No'}</span></div>
+                <div>useAuth userRole: <code className="bg-yellow-100 px-1 rounded">{userRole || 'undefined'}</code></div>
+                <div>직접 user.role: <code className="bg-yellow-100 px-1 rounded">{user.role || 'undefined'}</code></div>
+                <div>isAuthenticated: <span className="font-medium text-green-600">{user ? 'Yes' : 'No'}</span></div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => console.log('User object:', user)}
+              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+            >
+              Console Log User
+            </button>
+            <button
+              onClick={() => {
+                console.log('Auth Hook Result:', { isAdmin: isAdmin(), userRole, user: user });
+              }}
+              className="px-3 py-1 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
+            >
+              Log Auth Hook
+            </button>
+              <button
+    onClick={() => {
+      if (onNavigateToAdmin && isAdmin()) {
+        console.log('Navigating to admin panel...');
+        onNavigateToAdmin();
+      }
+    }}
+    className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+    disabled={!isAdmin()}
+  >
+    {isAdmin() ? '관리자 패널로 이동' : '관리자 권한 없음'}
+  </button>
+            <button
+              onClick={() => {
+                alert(`현재 권한: ${userRole || 'undefined'}\n관리자 여부: ${isAdmin() ? 'Yes' : 'No'}`);
+              }}
+              className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+            >
+              권한 Alert
+            </button>
+          </div>
+          <div className="mt-3 text-xs text-yellow-700">
+            이 섹션은 개발 환경에서만 표시됩니다. 프로덕션에서는 자동으로 숨겨집니다.
+          </div>
+        </div>
+      )}
       
     </div>
-    
   );
 };
 

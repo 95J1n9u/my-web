@@ -698,6 +698,7 @@ const forceRefreshUserData = async () => {
                 }}
                 onNavigateToUpload={() => handleTabChange('upload')}
                 onNavigateToResults={() => handleTabChange('results')}
+                onNavigateToAdmin={() => handleTabChange('admin')}
                 user={user}
               />
             )}

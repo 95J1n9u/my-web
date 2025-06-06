@@ -3,6 +3,7 @@ export const USER_ROLES = {
   USER: 'user',
   ADMIN: 'admin',
   MODERATOR: 'moderator', // 선택사항
+  PREMIUM: 'premium',
 };
 
 export const PERMISSIONS = {
@@ -61,6 +62,7 @@ export const getRoleDisplayName = (role) => {
     [USER_ROLES.USER]: '일반 사용자',
     [USER_ROLES.ADMIN]: '관리자',
     [USER_ROLES.MODERATOR]: '중간 관리자',
+    [USER_ROLES.PREMIUM]: 'PREMIUM',
   };
   return roleNames[role] || '알 수 없음';
 };
@@ -71,6 +73,7 @@ export const getRoleColor = (role) => {
     [USER_ROLES.USER]: 'bg-blue-100 text-blue-800',
     [USER_ROLES.ADMIN]: 'bg-red-100 text-red-800',
     [USER_ROLES.MODERATOR]: 'bg-yellow-100 text-yellow-800',
+    [USER_ROLES.PREMIUM]: 'bg-yellow-200 text-yellow-900',
   };
   return roleColors[role] || 'bg-gray-100 text-gray-800';
 };
