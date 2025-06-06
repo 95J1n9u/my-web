@@ -831,7 +831,7 @@ const Dashboard = ({
                   <h5 className="font-medium mb-1">지원 지침서:</h5>
                   <ul className="list-disc list-inside space-y-1 text-xs">
                     <li>KISA (한국인터넷진흥원) ✅ 38룰</li>
-                    <li>CIS (Center for Internet Security) ✅ 11룰</li>
+                    <li>CIS (Center for Internet Security) ✅ 89룰</li>
                     <li>NW (네트워크 보안 지침서) ✅ 42룰</li>
                     <li>NIST (National Institute of Standards) 🚧 계획중</li>
                   </ul>

@@ -145,8 +145,10 @@ const Sidebar = ({
             </svg>
           </div>
           <div>
+            <a href="/Dashboard">
             <h1 className="text-lg font-bold text-gray-900">NetSecure</h1>
             <p className="text-xs text-gray-500">다중 지침서 분석기</p>
+            </a>
           </div>
         </div>
       </div>
