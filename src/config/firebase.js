@@ -235,6 +235,8 @@ export const authService = {
         activeUsers: 0, // 최근 30일 로그인
       };
 
+      
+
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -284,7 +286,7 @@ export const authService = {
       };
     }
   },
-  
+
   // 이메일/비밀번호 회원가입
   signUpWithEmail: async (email, password, displayName) => {
     try {
@@ -419,7 +421,320 @@ export const authService = {
       };
     }
   },
+createPost: async (uid, postData) => {
+  try {
+    checkFirebaseServices();
+    debugLog('Creating post', { uid, postData });
 
+    const postDoc = {
+      title: postData.title,
+      content: postData.content,
+      category: postData.category || 'general',
+      authorId: uid,
+      authorName: postData.authorName,
+      authorEmail: postData.authorEmail,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      views: 0,
+      likes: 0,
+      comments: 0,
+      isPublished: true,
+      tags: postData.tags || [],
+    };
+
+    const postsRef = collection(db, 'posts');
+    const docRef = await addDoc(postsRef, postDoc);
+
+    debugLog('Post created successfully', { docId: docRef.id });
+
+    return {
+      success: true,
+      postId: docRef.id,
+    };
+  } catch (error) {
+    console.error('Error creating post:', error);
+    debugLog('Post creation error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code) || error.message,
+    };
+  }
+},
+
+// 공지사항 작성 (관리자 전용)
+createNotice: async (adminUid, noticeData) => {
+  try {
+    checkFirebaseServices();
+    debugLog('Creating notice', { adminUid, noticeData });
+
+    // 관리자 권한 확인
+    const adminRef = doc(db, 'users', adminUid);
+    const adminDoc = await getDoc(adminRef);
+    
+    if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+      return {
+        success: false,
+        error: '관리자 권한이 필요합니다.',
+      };
+    }
+
+    const noticeDoc = {
+      title: noticeData.title,
+      content: noticeData.content,
+      category: noticeData.category || 'general',
+      priority: noticeData.priority || 'normal', // normal, high, urgent
+      authorId: adminUid,
+      authorName: noticeData.authorName,
+      authorEmail: noticeData.authorEmail,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      views: 0,
+      isPublished: true,
+      isPinned: noticeData.isPinned || false,
+      expiresAt: noticeData.expiresAt || null,
+    };
+
+    const noticesRef = collection(db, 'notices');
+    const docRef = await addDoc(noticesRef, noticeDoc);
+
+    debugLog('Notice created successfully', { docId: docRef.id });
+
+    return {
+      success: true,
+      noticeId: docRef.id,
+    };
+  } catch (error) {
+    console.error('Error creating notice:', error);
+    debugLog('Notice creation error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code) || error.message,
+    };
+  }
+},
+
+// 게시글 목록 조회
+getPosts: async (limitCount = 20, category = null) => {
+  try {
+    checkFirebaseServices();
+    debugLog('Fetching posts', { limitCount, category });
+
+    const postsRef = collection(db, 'posts');
+    let q = query(
+      postsRef,
+      where('isPublished', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+
+    if (category && category !== 'all') {
+      q = query(
+        postsRef,
+        where('isPublished', '==', true),
+        where('category', '==', category),
+        orderBy('createdAt', 'desc'),
+        limit(limitCount)
+      );
+    }
+
+    const querySnapshot = await getDocs(q);
+    const posts = [];
+
+    querySnapshot.forEach(doc => {
+      posts.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+
+    debugLog('Posts fetched successfully', { count: posts.length });
+
+    return {
+      success: true,
+      posts: posts,
+      count: posts.length,
+    };
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    debugLog('Posts fetch error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code) || error.message,
+      posts: [],
+    };
+  }
+},
+
+// 공지사항 목록 조회
+getNotices: async (limitCount = 10) => {
+  try {
+    checkFirebaseServices();
+    debugLog('Fetching notices', { limitCount });
+
+    const noticesRef = collection(db, 'notices');
+    const q = query(
+      noticesRef,
+      where('isPublished', '==', true),
+      orderBy('isPinned', 'desc'),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const notices = [];
+
+    querySnapshot.forEach(doc => {
+      notices.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+
+    debugLog('Notices fetched successfully', { count: notices.length });
+
+    return {
+      success: true,
+      notices: notices,
+      count: notices.length,
+    };
+  } catch (error) {
+    console.error('Error fetching notices:', error);
+    debugLog('Notices fetch error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code) || error.message,
+      notices: [],
+    };
+  }
+},
+
+// 게시글 상세 조회 및 조회수 증가
+getPost: async (postId) => {
+  try {
+    checkFirebaseServices();
+    debugLog('Fetching post', { postId });
+
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+
+    if (!postDoc.exists()) {
+      return {
+        success: false,
+        error: '게시글을 찾을 수 없습니다.',
+      };
+    }
+
+    // 조회수 증가
+    await updateDoc(postRef, {
+      views: (postDoc.data().views || 0) + 1,
+    });
+
+    const postData = {
+      id: postDoc.id,
+      ...postDoc.data(),
+      views: (postDoc.data().views || 0) + 1,
+    };
+
+    debugLog('Post fetched successfully', { postId: postData.id });
+
+    return {
+      success: true,
+      post: postData,
+    };
+  } catch (error) {
+    console.error('Error fetching post:', error);
+    debugLog('Post fetch error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code) || error.message,
+    };
+  }
+},
+
+// 공지사항 상세 조회 및 조회수 증가
+getNotice: async (noticeId) => {
+  try {
+    checkFirebaseServices();
+    debugLog('Fetching notice', { noticeId });
+
+    const noticeRef = doc(db, 'notices', noticeId);
+    const noticeDoc = await getDoc(noticeRef);
+
+    if (!noticeDoc.exists()) {
+      return {
+        success: false,
+        error: '공지사항을 찾을 수 없습니다.',
+      };
+    }
+
+    // 조회수 증가
+    await updateDoc(noticeRef, {
+      views: (noticeDoc.data().views || 0) + 1,
+    });
+
+    const noticeData = {
+      id: noticeDoc.id,
+      ...noticeDoc.data(),
+      views: (noticeDoc.data().views || 0) + 1,
+    };
+
+    debugLog('Notice fetched successfully', { noticeId: noticeData.id });
+
+    return {
+      success: true,
+      notice: noticeData,
+    };
+  } catch (error) {
+    console.error('Error fetching notice:', error);
+    debugLog('Notice fetch error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code) || error.message,
+    };
+  }
+},
+
+// 사용자 게시글 목록 조회
+getUserPosts: async (uid, limitCount = 20) => {
+  try {
+    checkFirebaseServices();
+    debugLog('Fetching user posts', { uid, limitCount });
+
+    const postsRef = collection(db, 'posts');
+    const q = query(
+      postsRef,
+      where('authorId', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const posts = [];
+
+    querySnapshot.forEach(doc => {
+      posts.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+
+    debugLog('User posts fetched successfully', { count: posts.length });
+
+    return {
+      success: true,
+      posts: posts,
+      count: posts.length,
+    };
+  } catch (error) {
+    console.error('Error fetching user posts:', error);
+    debugLog('User posts fetch error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code) || error.message,
+      posts: [],
+    };
+  }
+},
   // Google 로그인
   signInWithGoogle: async () => {
     try {

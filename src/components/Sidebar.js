@@ -98,6 +98,44 @@ const Sidebar = ({
         </svg>
       ),
     },
+      {
+    id: 'community',
+    name: '커뮤니티',
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h2m-4 9l4-4 4 4m-4-4v9"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: 'notices',
+    name: '공지사항',
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+        />
+      </svg>
+    ),
+  },
     // 로그인한 사용자에게만 보이는 메뉴
     ...(user
       ? [
@@ -121,8 +159,28 @@ const Sidebar = ({
             ),
             badge: analysisRecordCount > 0 ? analysisRecordCount : null,
           },
-        ]
-      : []),
+        {
+          id: 'my-posts',
+          name: '내 게시글',
+          icon: (
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          ),
+        },
+      ]
+    : []),
+
     // 관리자에게만 보이는 메뉴 (추가)
     ...(isAdmin()
       ? [

@@ -15,6 +15,11 @@ import AdminPanel from './components/AdminPanel'; // 추가
 import { useAuth } from './hooks/useAuth'; // 추가
 import UserDebugInfo from './components/UserDebugInfo'; // 추가 (개발용)
 import SignupPromptModal from './components/SignupPromptModal';
+import CreatePost from './components/CreatePost';
+import CreateNotice from './components/CreateNotice';
+import CommunityPosts from './components/CommunityPosts';
+import NoticesList from './components/NoticesList';
+import MyPosts from './components/MyPosts';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -31,6 +36,23 @@ function App() {
   const [analysisRecordCount, setAnalysisRecordCount] = useState(0);
   const [showSignupPrompt, setShowSignupPrompt] = useState(false);
   const [signupPromptDismissed, setSignupPromptDismissed] = useState(false);
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showCreateNotice, setShowCreateNotice] = useState(false);
+
+  
+  // 게시글 작성 성공 처리
+  const handlePostCreateSuccess = (postId) => {
+    setShowCreatePost(false);
+    setActiveTab('community');
+    console.log('새 게시글 작성됨:', postId);
+  };
+
+  // 공지사항 작성 성공 처리
+  const handleNoticeCreateSuccess = (noticeId) => {
+    setShowCreateNotice(false);
+    setActiveTab('notices');
+    console.log('새 공지사항 작성됨:', noticeId);
+  };
 
   // Firebase 인증 상태 관리
   const [user, setUser] = useState(null);
@@ -720,6 +742,52 @@ const handleSignupSuccess = (userData) => {
                 onNavigateToResults={() => handleTabChange('results')}
                 onNavigateToAdmin={() => handleTabChange('admin')}
                 user={user}
+              />
+            )}
+            {activeTab === 'community' && (
+              showCreatePost ? (
+                <CreatePost
+                  user={user}
+                  onSuccess={handlePostCreateSuccess}
+                  onCancel={() => setShowCreatePost(false)}
+                />
+              ) : (
+                <CommunityPosts
+                  user={user}
+                  onCreatePost={() => setShowCreatePost(true)}
+                  onViewPost={(postId) => {
+                    console.log('View post:', postId);
+                    // TODO: 게시글 상세 보기 구현
+                  }}
+                />
+              )
+            )}
+            {activeTab === 'notices' && (
+              showCreateNotice ? (
+                <CreateNotice
+                  user={user}
+                  onSuccess={handleNoticeCreateSuccess}
+                  onCancel={() => setShowCreateNotice(false)}
+                />
+              ) : (
+                <NoticesList
+                  user={user}
+                  onCreateNotice={() => setShowCreateNotice(true)}
+                  onViewNotice={(noticeId) => {
+                    console.log('View notice:', noticeId);
+                    // TODO: 공지사항 상세 보기 구현
+                  }}
+                />
+              )
+            )}
+            {activeTab === 'my-posts' && user && (
+              <MyPosts
+                user={user}
+                onCreatePost={() => setShowCreatePost(true)}
+                onViewPost={(postId) => {
+                  console.log('View my post:', postId);
+                  // TODO: 게시글 상세 보기 구현
+                }}
               />
             )}
             {activeTab === 'upload' && (
