@@ -6,6 +6,8 @@ import Dashboard from './components/Dashboard';
 import FileUpload from './components/FileUpload';
 import VulnerabilityResults from './components/VulnerabilityResults';
 import analysisService from './services/analysisService';
+import { authService, auth } from './config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -20,16 +22,68 @@ function App() {
   const [serviceStatus, setServiceStatus] = useState('checking');
   const [engineInfo, setEngineInfo] = useState(null);
 
-  // 사용자 인증 상태 추가
+  // Firebase 인증 상태 관리
   const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // 모바일 사이드바 상태 추가
+  // 모바일 사이드바 상태 관리
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // 알림 상태 관리 추가
+  // 알림 상태 관리
   const [dismissedNotifications, setDismissedNotifications] = useState(
     new Set()
   );
+
+  // Firebase 인증 상태 변화 감지
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
+      setAuthLoading(true);
+
+      if (firebaseUser) {
+        // 사용자가 로그인된 상태
+        try {
+          // Firestore에서 추가 사용자 정보 가져오기
+          const userData = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName || '사용자',
+            photoURL: firebaseUser.photoURL,
+            emailVerified: firebaseUser.emailVerified,
+            role: 'user', // 기본값, Firestore에서 실제 역할을 가져와야 함
+            lastLoginAt: new Date().toISOString(),
+          };
+
+          setUser(userData);
+
+          // 로컬 스토리지에 사용자 기본 정보 저장 (보안상 최소한의 정보만)
+          localStorage.setItem(
+            'userSession',
+            JSON.stringify({
+              uid: userData.uid,
+              email: userData.email,
+              displayName: userData.displayName,
+              lastLogin: userData.lastLoginAt,
+            })
+          );
+
+          console.log('사용자 로그인 상태 확인:', userData.displayName);
+        } catch (error) {
+          console.error('사용자 정보 로드 오류:', error);
+          setUser(null);
+        }
+      } else {
+        // 사용자가 로그아웃된 상태
+        setUser(null);
+        localStorage.removeItem('userSession');
+        console.log('사용자 로그아웃 상태');
+      }
+
+      setAuthLoading(false);
+    });
+
+    // 컴포넌트 언마운트 시 리스너 정리
+    return () => unsubscribe();
+  }, []);
 
   // 알림 닫기 함수
   const dismissNotification = notificationId => {
@@ -47,29 +101,35 @@ function App() {
     setIsMobileSidebarOpen(false);
   };
 
-  // 사용자 로그인/로그아웃 처리
-  const handleLogin = userData => {
+  // Firebase 로그인 성공 처리
+  const handleLoginSuccess = async userData => {
+    console.log('로그인 성공:', userData);
     setUser(userData);
-    // localStorage에 사용자 정보 저장 (선택사항)
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-  };
-
-  // 컴포넌트 마운트 시 저장된 사용자 정보 복원
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        localStorage.removeItem('user');
-      }
+    // 사용자 설정에 따른 초기화
+    if (userData.preferences?.defaultFramework) {
+      setSelectedFramework(userData.preferences.defaultFramework);
     }
-  }, []);
+  };
+
+  // Firebase 로그아웃 처리
+  const handleLogout = async () => {
+    try {
+      const result = await authService.signOut();
+      if (result.success) {
+        setUser(null);
+        // 분석 관련 상태도 초기화
+        setAnalysisResults(null);
+        setComparisonResults(null);
+        setUploadedFile(null);
+        setAnalysisError(null);
+        setActiveTab('dashboard');
+        console.log('로그아웃 완료');
+      }
+    } catch (error) {
+      console.error('로그아웃 오류:', error);
+    }
+  };
 
   // 컴포넌트 마운트 시 서비스 상태 및 기본 정보 로드
   useEffect(() => {
@@ -114,7 +174,7 @@ function App() {
       }
     } catch (error) {
       console.error('Failed to load frameworks:', error);
-      // API에서 로드 실패 시 기본값 설정 (NW를 구현됨으로 표시)
+      // API에서 로드 실패 시 기본값 설정
       setFrameworks([
         {
           id: 'KISA',
@@ -166,7 +226,7 @@ function App() {
       }
     } catch (error) {
       console.error('Failed to load device types:', error);
-      // 기본값 설정 - 새로운 API 명세서에 따른 확장된 장비 타입
+      // 기본값 설정
       setDeviceTypes([
         'Cisco',
         'Juniper',
@@ -256,6 +316,15 @@ function App() {
       }
 
       setActiveTab('results');
+
+      // 로그인된 사용자의 분석 횟수 증가
+      if (user?.uid) {
+        try {
+          await authService.incrementAnalysisCount(user.uid);
+        } catch (error) {
+          console.error('Failed to increment analysis count:', error);
+        }
+      }
     } catch (error) {
       console.error('Analysis failed:', error);
       setAnalysisError(error.message);
@@ -284,6 +353,18 @@ function App() {
   const handleFrameworkChange = frameworkId => {
     setSelectedFramework(frameworkId);
     loadDeviceTypes(frameworkId);
+
+    // 로그인된 사용자의 기본 지침서 설정 업데이트
+    if (user?.uid) {
+      authService
+        .updateUserPreferences(user.uid, {
+          ...user.preferences,
+          defaultFramework: frameworkId,
+        })
+        .catch(error => {
+          console.error('Failed to update default framework:', error);
+        });
+    }
   };
 
   // 현재 표시할 결과 결정 (단일 분석 또는 비교 분석)
@@ -316,6 +397,21 @@ function App() {
   };
 
   const frameworkStats = getFrameworkStats();
+
+  // 인증 로딩 중 화면
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            NetSecure 로딩 중
+          </h3>
+          <p className="text-gray-500">인증 상태를 확인하고 있습니다...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-100 relative">
@@ -356,7 +452,7 @@ function App() {
           onToggleMobileSidebar={toggleMobileSidebar}
           isMobileSidebarOpen={isMobileSidebarOpen}
           user={user}
-          onLogin={handleLogin}
+          onLogin={handleLoginSuccess}
           onLogout={handleLogout}
         />
 
@@ -456,6 +552,11 @@ function App() {
               <div className="text-xs text-gray-500">
                 잠시만 기다려주세요...
               </div>
+              {user && (
+                <div className="text-xs text-blue-600 mt-2">
+                  분석 완료 시 기록에 저장됩니다
+                </div>
+              )}
             </div>
           </div>
         </div>

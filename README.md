@@ -116,7 +116,7 @@ curl https://kisa-network-analyzer-production.up.railway.app/api/v1/frameworks
 로컬에서 API 서버를 실행하는 경우 `.env` 파일을 수정:
 
 ```env
-REACT_APP_API_BASE_URL=http://localhost:5000/api/v1
+REACT_APP_API_BASE_URL=https://kisa-network-analyzer-production.up.railway.app/api/v1
 ```
 
 ## 📖 사용 방법
@@ -219,6 +219,7 @@ src/
 │   ├── FileUpload.js   # 파일 업로드
 │   ├── Header.js       # 헤더
 │   ├── Sidebar.js      # 사이드바
+│   ├── LoginModal.js      # 로그인모달
 │   └── VulnerabilityResults.js  # 결과 표시
 ├── services/           # API 서비스
 │   └── analysisService.js  # 분석 API 클라이언트
@@ -241,7 +242,7 @@ src/
 
 ### API 통신
 
-- **Base URL**: `http://localhost:5000/api/v1`
+- **Base URL**: `https://kisa-network-analyzer-production.up.railway.app/api/v1`
 - **인증**: 현재 버전에서는 불필요
 - **요청 형식**: JSON
 - **응답 형식**: JSON
