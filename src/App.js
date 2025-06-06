@@ -147,7 +147,7 @@ function App() {
       await loadDeviceTypes();
     };
     initialize();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   const checkServiceHealth = async () => {
     try {
