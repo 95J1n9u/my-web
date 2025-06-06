@@ -167,22 +167,19 @@ function App() {
     }
   };
 
-  // 🔁 새로고침 시 분석 횟수 로드
+  // 분석 기록 수 로드 함수
   const loadAnalysisRecordCount = async (uid) => {
     try {
-      const userDocRef = doc(db, 'users', uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        console.log('Firestore에서 분석 카운트 로드:', data.analysisCount);
-        setAnalysisRecordCount(data.analysisCount || 0);
+      console.log('분석 기록 수 로드 시작:', uid);
+      const result = await authService.getUserAnalyses(uid, 1000); // 최대 100개로 제한
+      if (result.success) {
+        console.log('분석 기록 수 로드 성공:', result.analyses.length);
+        setAnalysisRecordCount(result.analyses.length);
       } else {
-        setAnalysisRecordCount(0);
+        console.error('분석 기록 로드 실패:', result.error);
       }
     } catch (error) {
-      console.error('분석 카운트 로딩 실패:', error);
-      setAnalysisRecordCount(0);
+      console.error('Failed to load analysis record count:', error);
     }
   };
 
@@ -513,6 +510,12 @@ function App() {
             ...prev,
             analysisCount: (prev.analysisCount || 0) + 1,
           }));
+                    // 대시보드가 활성화되어 있다면 통계 새로고침을 위해 리렌더링 유도
+          if (activeTab === 'dashboard') {
+            // 강제로 컴포넌트 리렌더링을 유도하여 새로운 통계 로드
+            setActiveTab('results'); // 잠시 다른 탭으로 변경
+            setTimeout(() => setActiveTab('dashboard'), 100); // 다시 대시보드로 돌아감
+          }
         } catch (saveError) {
           console.error('Error saving analysis result:', saveError);
           // 저장 실패해도 분석 결과는 표시
@@ -774,9 +777,10 @@ function App() {
       <DebugPanel />
 
       {/* Firebase 연결 테스트 (개발 환경에서만) */}
-      {process.env.NODE_ENV === 'development' && <FirebaseTest />}
+      {/*process.env.NODE_ENV === 'development' && <FirebaseTest />*/}
     </div>
   );
 }
+
 
 export default App;

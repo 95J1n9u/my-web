@@ -181,7 +181,7 @@ const Sidebar = ({
           </div>
           {/* 수정: 총 분석 횟수와 저장된 기록 수를 구분하여 표시 */}
           <div className="mt-2 text-xs text-blue-600">
-            <div>총 {user.analysisCount || 0}회 분석 완료</div>
+            
             {analysisRecordCount > 0 && (
               <div className="text-green-600">
                 {analysisRecordCount}개 기록 저장됨

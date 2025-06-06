@@ -233,11 +233,6 @@ const Header = ({
                           <div className="text-xs text-gray-500 truncate">
                             {user.email}
                           </div>
-                          {user.analysisCount !== undefined && (
-                            <div className="text-xs text-blue-600 mt-1">
-                              분석 {user.analysisCount || 0}회 수행
-                            </div>
-                          )}
                         </div>
                       </div>
 

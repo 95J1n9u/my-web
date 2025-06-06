@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // React import 수정
 import analysisService from '../services/analysisService';
 import LoginPrompt from './LoginPrompt';
+import { authService } from '../config/firebase';
 
 const Dashboard = ({
   analysisResults,
@@ -14,6 +15,64 @@ const Dashboard = ({
   user,
   onLogin,
 }) => {
+  // 누적 통계 상태 추가
+  const [cumulativeStats, setCumulativeStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  // 사용자가 변경되거나 로그인할 때 누적 통계 로드
+  useEffect(() => {
+    if (user?.uid) {
+      loadCumulativeStats();
+    } else {
+      setCumulativeStats(null);
+    }
+  }, [user?.uid]);
+
+  // 누적 통계 로드 함수
+  const loadCumulativeStats = async () => {
+    if (!user?.uid) return;
+
+    try {
+      setLoadingStats(true);
+      
+      // 사용자의 분석 기록 가져오기
+      const analysesResult = await authService.getUserAnalyses(user.uid, 100); // 최대 100개
+      
+      if (analysesResult.success) {
+        const analyses = analysesResult.analyses;
+        
+        // 누적 통계 계산
+        const stats = {
+          totalScans: analyses.length,
+          totalVulnerabilities: 0,
+          highSeverity: 0,
+          mediumSeverity: 0,
+          lowSeverity: 0,
+          totalPassed: 0,
+          totalChecks: 0,
+        };
+
+        analyses.forEach(analysis => {
+          if (analysis.summary) {
+            stats.totalVulnerabilities += analysis.summary.vulnerabilities || 0;
+            stats.highSeverity += analysis.summary.highSeverity || 0;
+            stats.mediumSeverity += analysis.summary.mediumSeverity || 0;
+            stats.lowSeverity += analysis.summary.lowSeverity || 0;
+            stats.totalPassed += analysis.summary.passed || 0;
+            stats.totalChecks += analysis.summary.totalChecks || 0;
+          }
+        });
+
+        setCumulativeStats(stats);
+      }
+    } catch (error) {
+      console.error('Failed to load cumulative stats:', error);
+      setCumulativeStats(null);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   // 실제 분석 결과가 있으면 해당 데이터 사용, 없으면 기본값 사용
   const hasResults = analysisResults || comparisonResults;
   const getFrameworkInfo = frameworkId =>
@@ -52,11 +111,62 @@ const Dashboard = ({
 
   const comparisonSummary = getComparisonSummary();
 
+  // 현재 분석 결과의 통계
+  const currentAnalysisStats = {
+    vulnerabilities: comparisonSummary
+      ? Object.values(comparisonResults.frameworks)
+          .filter(r => !r.error)
+          .reduce((sum, r) => sum + (r.summary?.vulnerabilities || 0), 0)
+      : analysisResults?.summary?.vulnerabilities || 0,
+    highSeverity: comparisonSummary
+      ? Object.values(comparisonResults.frameworks)
+          .filter(r => !r.error)
+          .reduce((sum, r) => sum + (r.summary?.highSeverity || 0), 0)
+      : analysisResults?.summary?.highSeverity || 0,
+    mediumSeverity: comparisonSummary
+      ? Object.values(comparisonResults.frameworks)
+          .filter(r => !r.error)
+          .reduce((sum, r) => sum + (r.summary?.mediumSeverity || 0), 0)
+      : analysisResults?.summary?.mediumSeverity || 0,
+    passed: comparisonSummary
+      ? Object.values(comparisonResults.frameworks)
+          .filter(r => !r.error)
+          .reduce((sum, r) => sum + (r.summary?.passed || 0), 0)
+      : analysisResults?.summary?.passed || 0,
+  };
+
+  // 최종 표시할 통계 (누적 통계 + 현재 분석)
+  const getDisplayStats = () => {
+    if (user && cumulativeStats) {
+      // 로그인한 사용자: 누적 통계 표시
+      return {
+        totalScans: cumulativeStats.totalScans,
+        vulnerabilities: cumulativeStats.totalVulnerabilities,
+        highSeverity: cumulativeStats.highSeverity,
+        mediumSeverity: cumulativeStats.mediumSeverity,
+        passed: cumulativeStats.totalPassed,
+      };
+    } else {
+      // 비로그인 사용자: 현재 분석 결과만 표시
+      return {
+        totalScans: hasResults ? 1 : 0,
+        vulnerabilities: currentAnalysisStats.vulnerabilities,
+        highSeverity: currentAnalysisStats.highSeverity,
+        mediumSeverity: currentAnalysisStats.mediumSeverity,
+        passed: currentAnalysisStats.passed,
+      };
+    }
+  };
+
+  const displayStats = getDisplayStats();
+
   const stats = [
     {
       title: '총 스캔 수',
-      value: hasResults ? '1' : '0',
-      change: hasResults ? 'New!' : '+0%',
+      value: loadingStats ? '...' : displayStats.totalScans.toString(),
+      change: user && cumulativeStats 
+        ? `총 ${displayStats.totalScans}회 분석`
+        : hasResults ? 'New!' : '+0%',
       changeType: 'neutral',
       icon: (
         <svg
@@ -77,24 +187,11 @@ const Dashboard = ({
     },
     {
       title: '고위험 취약점',
-      value: comparisonSummary
-        ? Object.values(comparisonResults.frameworks)
-            .filter(r => !r.error)
-            .reduce((sum, r) => sum + (r.summary?.highSeverity || 0), 0)
-            .toString()
-        : analysisResults
-          ? (analysisResults.summary.highSeverity || 0).toString()
-          : '0',
-      change: hasResults ? 'New!' : '0%',
-      changeType:
-        hasResults &&
-        (comparisonSummary
-          ? Object.values(comparisonResults.frameworks).some(
-              r => !r.error && r.summary?.highSeverity > 0
-            )
-          : analysisResults?.summary.highSeverity > 0)
-          ? 'increase'
-          : 'neutral',
+      value: loadingStats ? '...' : displayStats.highSeverity.toString(),
+      change: user && cumulativeStats
+        ? `누적 ${displayStats.highSeverity}개`
+        : hasResults ? 'New!' : '0%',
+      changeType: displayStats.highSeverity > 0 ? 'increase' : 'neutral',
       icon: (
         <svg
           className="w-8 h-8"
@@ -114,24 +211,11 @@ const Dashboard = ({
     },
     {
       title: '중위험 취약점',
-      value: comparisonSummary
-        ? Object.values(comparisonResults.frameworks)
-            .filter(r => !r.error)
-            .reduce((sum, r) => sum + (r.summary?.mediumSeverity || 0), 0)
-            .toString()
-        : analysisResults
-          ? (analysisResults.summary.mediumSeverity || 0).toString()
-          : '0',
-      change: hasResults ? 'New!' : '0%',
-      changeType:
-        hasResults &&
-        (comparisonSummary
-          ? Object.values(comparisonResults.frameworks).some(
-              r => !r.error && r.summary?.mediumSeverity > 0
-            )
-          : analysisResults?.summary.mediumSeverity > 0)
-          ? 'increase'
-          : 'neutral',
+      value: loadingStats ? '...' : displayStats.mediumSeverity.toString(),
+      change: user && cumulativeStats
+        ? `누적 ${displayStats.mediumSeverity}개`
+        : hasResults ? 'New!' : '0%',
+      changeType: displayStats.mediumSeverity > 0 ? 'increase' : 'neutral',
       icon: (
         <svg
           className="w-8 h-8"
@@ -151,24 +235,11 @@ const Dashboard = ({
     },
     {
       title: '통과한 항목',
-      value: comparisonSummary
-        ? Object.values(comparisonResults.frameworks)
-            .filter(r => !r.error)
-            .reduce((sum, r) => sum + (r.summary?.passed || 0), 0)
-            .toString()
-        : analysisResults
-          ? analysisResults.summary.passed.toString()
-          : '0',
-      change: hasResults ? 'New!' : '0%',
-      changeType:
-        hasResults &&
-        (comparisonSummary
-          ? Object.values(comparisonResults.frameworks).some(
-              r => !r.error && r.summary?.passed > 0
-            )
-          : analysisResults?.summary.passed > 0)
-          ? 'increase'
-          : 'neutral',
+      value: loadingStats ? '...' : displayStats.passed.toString(),
+      change: user && cumulativeStats
+        ? `누적 ${displayStats.passed}개`
+        : hasResults ? 'New!' : '0%',
+      changeType: 'neutral',
       icon: (
         <svg
           className="w-8 h-8"
@@ -289,36 +360,7 @@ const Dashboard = ({
         </div>
       )}
 
-      {/* 로그인한 사용자 환영 메시지 */}
-      {user && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <svg
-              className="w-5 h-5 text-green-500 mt-0.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-green-900">
-                환영합니다, {user.displayName || '사용자'}님!
-              </p>
-              <p className="text-sm text-green-700">
-                지금까지 {user.analysisCount || 0}회의 보안 분석을
-                완료하셨습니다. 분석 기록은 자동으로 저장되어 언제든지 확인할 수
-                있습니다.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Framework Status */}
       {engineInfo && (
@@ -404,7 +446,7 @@ const Dashboard = ({
                     {stat.change}
                   </span>
                   <span className="text-sm text-gray-500 ml-1">
-                    {hasResults ? '최근 분석' : '분석 대기'}
+                    {hasResults ? '최근 분석' : ''}
                   </span>
                 </div>
               </div>
