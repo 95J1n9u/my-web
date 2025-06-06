@@ -104,20 +104,16 @@
   },
   "eslintConfig": {
     "rules": {
-      "no-console": "warn",
-      "no-unused-vars": "warn"
-    },
-    "plugins": [
-      "prettier"
-    ],
-    "rules": {
       "prettier/prettier": "error",
       "react-hooks/exhaustive-deps": "warn",
       "no-unused-vars": "warn",
       "no-console": "warn",
       "prefer-const": "error",
       "no-var": "error"
-    }
+    },
+    "plugins": [
+      "prettier"
+    ]
   },
   "prettier": {
     "semi": true,
