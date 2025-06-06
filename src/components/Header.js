@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import analysisService from '../services/analysisService';
+import LoginModal from './LoginModal';
 
 const Header = ({
   serviceStatus,
@@ -9,8 +10,13 @@ const Header = ({
   engineInfo,
   onToggleMobileSidebar,
   isMobileSidebarOpen,
+  user,
+  onLogin,
+  onLogout,
 }) => {
   const [showFrameworkDropdown, setShowFrameworkDropdown] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const getFrameworkInfo = frameworkId =>
     analysisService.getFrameworkInfo(frameworkId);
@@ -38,6 +44,16 @@ const Header = ({
       default:
         return '연결 중';
     }
+  };
+
+  const handleLogin = userData => {
+    onLogin(userData);
+    setShowLoginModal(false);
+  };
+
+  const handleLogout = () => {
+    onLogout();
+    setShowUserDropdown(false);
   };
 
   return (
@@ -112,7 +128,7 @@ const Header = ({
               </svg>
             </button>
 
-            {/* Framework Dropdown - 간소화 */}
+            {/* Framework Dropdown */}
             {showFrameworkDropdown && (
               <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                 <div className="p-2">
@@ -219,6 +235,93 @@ const Header = ({
               </span>
             </div>
           )}
+
+          {/* Authentication Section */}
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
+                <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                  {user.name?.charAt(0).toUpperCase() ||
+                    user.email?.charAt(0).toUpperCase() ||
+                    'U'}
+                </div>
+                <span className="hidden md:block">
+                  {user.name || user.email}
+                </span>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                    showUserDropdown ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {/* User Dropdown */}
+              {showUserDropdown && (
+                <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="p-1">
+                    <div className="px-3 py-2 text-sm font-medium text-gray-900 border-b border-gray-100">
+                      {user.name || '사용자'}
+                    </div>
+                    <div className="px-3 py-1 text-xs text-gray-500">
+                      {user.email}
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200 mt-1"
+                    >
+                      <svg
+                        className="w-4 h-4 inline mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                      로그아웃
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+              <span className="hidden sm:inline">로그인</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -252,9 +355,22 @@ const Header = ({
                   NW 추가
                 </span>
               )}
+              {user && (
+                <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                  인증됨
+                </span>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          onLogin={handleLogin}
+        />
       )}
     </header>
   );

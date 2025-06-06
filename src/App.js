@@ -20,6 +20,9 @@ function App() {
   const [serviceStatus, setServiceStatus] = useState('checking');
   const [engineInfo, setEngineInfo] = useState(null);
 
+  // 사용자 인증 상태 추가
+  const [user, setUser] = useState(null);
+
   // 모바일 사이드바 상태 추가
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -43,6 +46,30 @@ function App() {
     setActiveTab(tabId);
     setIsMobileSidebarOpen(false);
   };
+
+  // 사용자 로그인/로그아웃 처리
+  const handleLogin = userData => {
+    setUser(userData);
+    // localStorage에 사용자 정보 저장 (선택사항)
+    localStorage.setItem('user', JSON.stringify(userData));
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('user');
+  };
+
+  // 컴포넌트 마운트 시 저장된 사용자 정보 복원
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (error) {
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
 
   // 컴포넌트 마운트 시 서비스 상태 및 기본 정보 로드
   useEffect(() => {
@@ -314,6 +341,7 @@ function App() {
             ...engineInfo,
             frameworkStats,
           }}
+          user={user}
         />
       </div>
 
@@ -327,6 +355,9 @@ function App() {
           engineInfo={engineInfo}
           onToggleMobileSidebar={toggleMobileSidebar}
           isMobileSidebarOpen={isMobileSidebarOpen}
+          user={user}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-3 lg:p-6">
@@ -344,6 +375,7 @@ function App() {
                 }}
                 onNavigateToUpload={() => handleTabChange('upload')}
                 onNavigateToResults={() => handleTabChange('results')}
+                user={user}
               />
             )}
             {activeTab === 'upload' && (
@@ -356,6 +388,7 @@ function App() {
                 selectedFramework={selectedFramework}
                 analysisError={analysisError}
                 onReset={resetAnalysis}
+                user={user}
               />
             )}
             {activeTab === 'results' && (
@@ -368,6 +401,7 @@ function App() {
                 frameworks={frameworks}
                 onRetry={handleRetryAnalysis}
                 onReset={resetAnalysis}
+                user={user}
               />
             )}
           </div>
