@@ -13,6 +13,7 @@ import { authService, auth } from './config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import AdminPanel from './components/AdminPanel'; // 추가
 import { useAuth } from './hooks/useAuth'; // 추가
+import UserDebugInfo from './components/UserDebugInfo'; // 추가 (개발용)
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -41,101 +42,106 @@ function App() {
   );
 
 // Firebase 인증 상태 변화 감지
-  useEffect(() => {
-    if (!auth) {
-      console.warn('Firebase Auth가 초기화되지 않았습니다.');
-      setAuthLoading(false);
-      return;
-    }
+useEffect(() => {
+  if (!auth) {
+    console.warn('Firebase Auth가 초기화되지 않았습니다.');
+    setAuthLoading(false);
+    return;
+  }
 
-    const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
-      setAuthLoading(true);
+  const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
+    setAuthLoading(true);
 
-      try {
-        if (firebaseUser) {
-          // 사용자가 로그인된 상태
-          console.log('Firebase 사용자 감지:', firebaseUser.displayName);
+    try {
+      if (firebaseUser) {
+        // 사용자가 로그인된 상태
+        console.log('Firebase 사용자 감지:', firebaseUser.displayName, firebaseUser.uid);
+        
+        // Firestore에서 사용자 추가 정보 가져오기
+        let userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName || '사용자',
+          photoURL: firebaseUser.photoURL,
+          emailVerified: firebaseUser.emailVerified,
+          role: 'user', // 기본값
+          lastLoginAt: new Date().toISOString(),
+          analysisCount: 0,
+          preferences: {},
+        };
+
+        try {
+          // Firestore에서 추가 사용자 정보 가져오기
+          const { getDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('./config/firebase');
           
-          // Firestore에서 사용자 추가 정보 가져오기
-          let userData = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName || '사용자',
-            photoURL: firebaseUser.photoURL,
-            emailVerified: firebaseUser.emailVerified,
-            role: 'user',
-            lastLoginAt: new Date().toISOString(),
-            analysisCount: 0, // 기본값
-            preferences: {},
-          };
+          if (db) {
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDoc = await getDoc(userDocRef);
 
-          try {
-            // Firestore에서 추가 사용자 정보 가져오기
-            const { getDoc, doc } = await import('firebase/firestore');
-            const { db } = await import('../config/firebase');
-            
-            if (db) {
-              const userDocRef = doc(db, 'users', firebaseUser.uid);
-              const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              const firestoreData = userDoc.data();
+              console.log('Firestore 사용자 데이터 로드:', firestoreData);
+              
+              userData = {
+                ...userData,
+                analysisCount: firestoreData.analysisCount || 0,
+                role: firestoreData.role || 'user', // role 정보 명시적으로 설정
+                preferences: firestoreData.preferences || {},
+                createdAt: firestoreData.createdAt,
+                lastLoginAt: firestoreData.lastLoginAt,
+              };
 
-              if (userDoc.exists()) {
-                const firestoreData = userDoc.data();
-                console.log('Firestore 사용자 데이터 로드:', firestoreData);
-                
-                userData = {
-                  ...userData,
-                  analysisCount: firestoreData.analysisCount || 0,
-                  role: firestoreData.role || 'user',
-                  preferences: firestoreData.preferences || {},
-                };
-              } else {
-                console.log('Firestore에 사용자 데이터가 없음, 기본값 사용');
-              }
+              console.log('최종 사용자 데이터:', userData);
+            } else {
+              console.log('Firestore에 사용자 데이터가 없음, 기본값 사용');
             }
-          } catch (firestoreError) {
-            console.error('Firestore 데이터 로드 실패:', firestoreError);
-            // Firestore 로드 실패해도 Firebase Auth 정보는 사용
           }
-
-          setUser(userData);
-
-          // 분석 기록 수 로드
-          if (userData.uid) {
-            loadAnalysisRecordCount(userData.uid);
-          }
-
-          // 로컬 스토리지에 사용자 기본 정보 저장 (보안상 최소한의 정보만)
-          localStorage.setItem(
-            'userSession',
-            JSON.stringify({
-              uid: userData.uid,
-              email: userData.email,
-              displayName: userData.displayName,
-              lastLogin: userData.lastLoginAt,
-              analysisCount: userData.analysisCount,
-            })
-          );
-
-          console.log('사용자 로그인 상태 확인 완료:', userData);
-        } else {
-          // 사용자가 로그아웃된 상태
-          setUser(null);
-          setAnalysisRecordCount(0);
-          localStorage.removeItem('userSession');
-          console.log('사용자 로그아웃 상태');
+        } catch (firestoreError) {
+          console.error('Firestore 데이터 로드 실패:', firestoreError);
+          // Firestore 로드 실패해도 Firebase Auth 정보는 사용
         }
-      } catch (error) {
-        console.error('사용자 정보 처리 오류:', error);
+
+        setUser(userData);
+
+        // 분석 기록 수 로드
+        if (userData.uid) {
+          loadAnalysisRecordCount(userData.uid);
+        }
+
+        // 로컬 스토리지에 사용자 기본 정보 저장
+        localStorage.setItem(
+          'userSession',
+          JSON.stringify({
+            uid: userData.uid,
+            email: userData.email,
+            displayName: userData.displayName,
+            role: userData.role, // role 정보 추가
+            lastLogin: userData.lastLoginAt,
+            analysisCount: userData.analysisCount,
+          })
+        );
+
+        console.log('사용자 로그인 상태 확인 완료. Role:', userData.role);
+      } else {
+        // 사용자가 로그아웃된 상태
         setUser(null);
         setAnalysisRecordCount(0);
-      } finally {
-        setAuthLoading(false);
+        localStorage.removeItem('userSession');
+        console.log('사용자 로그아웃 상태');
       }
-    });
+    } catch (error) {
+      console.error('사용자 정보 처리 오류:', error);
+      setUser(null);
+      setAnalysisRecordCount(0);
+    } finally {
+      setAuthLoading(false);
+    }
+  });
 
-    // 컴포넌트 언마운트 시 리스너 정리
-    return () => unsubscribe();
-  }, []);
+  // 컴포넌트 언마운트 시 리스너 정리
+  return () => unsubscribe();
+}, []);
 
   // 알림 닫기 함수
   const dismissNotification = notificationId => {
@@ -185,42 +191,63 @@ function App() {
     }
   };
 
-  // 사용자 정보 새로고침 함수 (분석 횟수 업데이트용)
-  const refreshUserData = async (uid) => {
-    try {
-      console.log('사용자 정보 새로고침 시작:', uid);
-      const { getDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('../config/firebase');
-      
-      if (db && uid) {
-        const userDocRef = doc(db, 'users', uid);
-        const userDoc = await getDoc(userDocRef);
+// 기존 refreshUserData 함수를 다음과 같이 수정
+const refreshUserData = async (uid) => {
+  try {
+    console.log('사용자 정보 새로고침 시작:', uid);
+    const { getDoc, doc } = await import('firebase/firestore');
+    const { db } = await import('./config/firebase');
+    
+    if (db && uid) {
+      const userDocRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userDocRef);
 
-        if (userDoc.exists()) {
-          const firestoreData = userDoc.data();
-          console.log('업데이트된 사용자 데이터:', firestoreData);
-          
-          setUser(prev => ({
-            ...prev,
+      if (userDoc.exists()) {
+        const firestoreData = userDoc.data();
+        console.log('업데이트된 사용자 데이터:', firestoreData);
+        
+        // 사용자 정보 완전히 새로고침
+        setUser(prev => ({
+          ...prev,
+          role: firestoreData.role || 'user', // role 정보 명시적 업데이트
+          analysisCount: firestoreData.analysisCount || 0,
+          preferences: firestoreData.preferences || {},
+          displayName: firestoreData.displayName || prev.displayName,
+        }));
+
+        // 로컬 스토리지도 업데이트
+        const existingSession = localStorage.getItem('userSession');
+        if (existingSession) {
+          const sessionData = JSON.parse(existingSession);
+          localStorage.setItem('userSession', JSON.stringify({
+            ...sessionData,
+            role: firestoreData.role || 'user', // role 정보 추가
             analysisCount: firestoreData.analysisCount || 0,
-            preferences: firestoreData.preferences || {},
           }));
-
-          // 로컬 스토리지도 업데이트
-          const existingSession = localStorage.getItem('userSession');
-          if (existingSession) {
-            const sessionData = JSON.parse(existingSession);
-            localStorage.setItem('userSession', JSON.stringify({
-              ...sessionData,
-              analysisCount: firestoreData.analysisCount || 0,
-            }));
-          }
         }
+
+        console.log('사용자 정보 새로고침 완료, 새 role:', firestoreData.role);
+        return { success: true, role: firestoreData.role };
       }
-    } catch (error) {
-      console.error('사용자 정보 새로고침 실패:', error);
     }
-  };
+  } catch (error) {
+    console.error('사용자 정보 새로고침 실패:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// 수동 새로고침 함수 추가
+const forceRefreshUserData = async () => {
+  if (user?.uid) {
+    console.log('수동 사용자 정보 새로고침 시작');
+    const result = await refreshUserData(user.uid);
+    if (result.success) {
+      alert(`사용자 정보가 새로고침되었습니다. 현재 권한: ${result.role}`);
+    } else {
+      alert('새로고침 실패: ' + result.error);
+    }
+  }
+};
 
   // Firebase 로그아웃 처리
   const handleLogout = async () => {
@@ -653,6 +680,7 @@ function App() {
           user={user}
           onLogin={handleLoginSuccess}
           onLogout={handleLogout}
+          onRefreshUser={forceRefreshUserData}
         />
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-3 lg:p-6">
@@ -779,6 +807,10 @@ function App() {
       {/* Firebase 디버깅 패널 (개발 환경에서만) */}
       <DebugPanel />
 
+      {/* 사용자 권한 디버깅 (개발 환경에서만) */}
+      <UserDebugInfo user={user} />
+
+      
       {/* Firebase 연결 테스트 (개발 환경에서만) */}
       {/*process.env.NODE_ENV === 'development' && <FirebaseTest />*/}
     </div>

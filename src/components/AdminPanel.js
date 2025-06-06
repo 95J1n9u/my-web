@@ -4,7 +4,7 @@ import { USER_ROLES, getRoleDisplayName, getRoleColor, PERMISSIONS } from '../ut
 import { useAuth } from '../hooks/useAuth';
 
 const AdminPanel = ({ user }) => {
-  const { isAdmin, hasPermission } = useAuth(user);
+  const { isAdmin, hasPermission, userRole } = useAuth(user);
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [systemStats, setSystemStats] = useState(null);
@@ -13,15 +13,34 @@ const AdminPanel = ({ user }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
 
+  // 의존성 배열을 user.role과 user.uid로 변경
   useEffect(() => {
-    if (isAdmin()) {
+    console.log('AdminPanel useEffect triggered', { 
+      userRole, 
+      userUid: user?.uid, 
+      isAdminResult: isAdmin() 
+    });
+
+    if (user?.uid && userRole === 'admin') {
+      console.log('Loading admin data...');
       loadData();
+    } else if (user?.uid && userRole && userRole !== 'admin') {
+      console.log('User is not admin, stopping loading');
+      setLoading(false);
+      setError('관리자 권한이 필요합니다.');
+    } else if (user?.uid && !userRole) {
+      console.log('UserRole not yet loaded, waiting...');
+      // userRole이 아직 로드되지 않았으면 잠시 대기
+      setLoading(true);
     }
-  }, [isAdmin]);
+  }, [user?.uid, userRole]); // isAdmin() 대신 userRole 직접 사용
 
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('Starting to load admin data...');
       
       // 사용자 목록과 시스템 통계 병렬 로드
       const [usersResult, statsResult] = await Promise.all([
@@ -29,19 +48,27 @@ const AdminPanel = ({ user }) => {
         authService.getSystemStats(user.uid),
       ]);
 
+      console.log('Users result:', usersResult);
+      console.log('Stats result:', statsResult);
+
       if (usersResult.success) {
         setUsers(usersResult.users);
+        console.log('Users loaded successfully:', usersResult.users.length);
       } else {
+        console.error('Failed to load users:', usersResult.error);
         setError(usersResult.error);
       }
 
       if (statsResult.success) {
         setSystemStats(statsResult.stats);
+        console.log('Stats loaded successfully:', statsResult.stats);
+      } else {
+        console.error('Failed to load stats:', statsResult.error);
       }
 
     } catch (error) {
       console.error('Failed to load admin data:', error);
-      setError('데이터 로드에 실패했습니다.');
+      setError('데이터 로드에 실패했습니다: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -49,6 +76,7 @@ const AdminPanel = ({ user }) => {
 
   const handleRoleChange = async (targetUid, newRole) => {
     try {
+      console.log('Changing role for user:', targetUid, 'to:', newRole);
       const result = await authService.updateUserRole(user.uid, targetUid, newRole);
       
       if (result.success) {
@@ -68,8 +96,30 @@ const AdminPanel = ({ user }) => {
     }
   };
 
+  // 로딩 상태에서 디버그 정보 표시
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-500">관리자 데이터를 불러오는 중...</p>
+        {/* 디버그 정보 추가 */}
+        <div className="mt-4 text-xs text-gray-400 space-y-1">
+          <div>User UID: {user?.uid || 'None'}</div>
+          <div>User Role: {userRole || 'Loading...'}</div>
+          <div>Is Admin: {isAdmin() ? 'Yes' : 'No'}</div>
+          <button 
+            onClick={() => console.log('Current user:', user)}
+            className="text-blue-500 underline"
+          >
+            Log User Object
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // 관리자 권한이 없으면 접근 거부
-  if (!isAdmin()) {
+  if (userRole && userRole !== 'admin') {
     return (
       <div className="text-center py-12">
         <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,15 +127,11 @@ const AdminPanel = ({ user }) => {
         </svg>
         <h3 className="text-xl font-medium text-gray-900 mb-2">관리자 권한 필요</h3>
         <p className="text-gray-500">이 페이지에 접근하려면 관리자 권한이 필요합니다.</p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-500">관리자 데이터를 불러오는 중...</p>
+        {/* 디버그 정보 추가 */}
+        <div className="mt-4 text-xs text-gray-400">
+          <div>현재 권한: {getRoleDisplayName(userRole)}</div>
+          <div>필요 권한: 관리자</div>
+        </div>
       </div>
     );
   }
@@ -98,22 +144,43 @@ const AdminPanel = ({ user }) => {
         </svg>
         <h3 className="text-lg font-medium text-gray-900 mb-2">오류 발생</h3>
         <p className="text-gray-500 mb-4">{error}</p>
-        <button
-          onClick={loadData}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          다시 시도
-        </button>
+        <div className="space-x-2">
+          <button
+            onClick={loadData}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            다시 시도
+          </button>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(false);
+            }}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+          >
+            취소
+          </button>
+        </div>
+        {/* 디버그 정보 */}
+        <div className="mt-4 text-xs text-gray-400">
+          <div>User Role: {userRole}</div>
+          <div>Error: {error}</div>
+        </div>
       </div>
     );
   }
 
+  // 나머지 컴포넌트 렌더링은 동일...
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">관리자 패널</h1>
         <p className="text-gray-600">시스템 관리 및 사용자 권한 관리</p>
+        {/* 디버그 정보 추가 */}
+        <div className="text-xs text-gray-400 mt-2">
+          현재 권한: {getRoleDisplayName(userRole)} | 사용자 수: {users.length}
+        </div>
       </div>
 
       {/* Stats Overview */}

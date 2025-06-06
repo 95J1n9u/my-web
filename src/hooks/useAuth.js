@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { hasPermission, isAdmin, isModerator } from '../utils/permissions';
 
 export const useAuth = (user) => {
@@ -7,20 +7,23 @@ export const useAuth = (user) => {
   useEffect(() => {
     if (user?.role) {
       setUserRole(user.role);
+    } else {
+      setUserRole(null);
     }
-  }, [user]);
+  }, [user?.role]); // user.role 변화만 감지
 
-  const checkPermission = (permission) => {
+  // useCallback으로 함수들을 메모이제이션
+  const checkPermission = useCallback((permission) => {
     return hasPermission(userRole, permission);
-  };
+  }, [userRole]);
 
-  const checkAdmin = () => {
+  const checkAdmin = useCallback(() => {
     return isAdmin(userRole);
-  };
+  }, [userRole]);
 
-  const checkModerator = () => {
+  const checkModerator = useCallback(() => {
     return isModerator(userRole);
-  };
+  }, [userRole]);
 
   return {
     userRole,
