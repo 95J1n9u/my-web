@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { authService } from '../config/firebase';
 import analysisService from '../services/analysisService';
 
-const AnalysisHistory = ({ user, onSelectAnalysis }) => {
+const AnalysisHistory = ({ user, onSelectAnalysis, onRecordCountChange }) => {
   const [analyses, setAnalyses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,6 +11,9 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [filterFramework, setFilterFramework] = useState('all');
   const [sortBy, setSortBy] = useState('date'); // 'date', 'vulnerabilities', 'score'
+
+  // 실제 저장된 기록 수 계산
+  const actualRecordCount = analyses.length;
 
   useEffect(() => {
     if (user?.uid) {
@@ -51,10 +54,15 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
     try {
       const result = await authService.deleteAnalysis(user.uid, analysisId);
       if (result.success) {
-        setAnalyses(prev =>
-          prev.filter(analysis => analysis.id !== analysisId)
-        );
+        const updatedAnalyses = analyses.filter(analysis => analysis.id !== analysisId);
+        setAnalyses(updatedAnalyses);
         setShowDeleteConfirm(null);
+        
+        // 새로 추가: 상위 컴포넌트에 기록 수 변경 알림
+        if (onRecordCountChange) {
+          onRecordCountChange(updatedAnalyses.length);
+        }
+        
         // 통계 새로고침
         loadStats();
       } else {
@@ -173,6 +181,10 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
         <h1 className="text-3xl font-bold text-gray-900">분석 기록</h1>
         <p className="text-gray-600">
           지금까지 수행한 보안 분석 결과를 확인하고 관리하세요
+          {/* 수정: 실제 저장된 기록 수와 총 분석 횟수를 구분하여 표시 */}
+          <span className="text-sm text-gray-500 ml-2">
+            (저장된 기록: {actualRecordCount}개 | 총 분석: {user.analysisCount || 0}회)
+          </span>
         </p>
       </div>
 
@@ -187,7 +199,7 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            최근 분석
+            최근 분석 ({actualRecordCount})
           </button>
           <button
             onClick={() => setSelectedTab('stats')}
@@ -260,6 +272,36 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
             </div>
           </div>
 
+          {/* 저장된 기록 개수 요약 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <svg
+                className="w-5 h-5 text-blue-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-blue-900">
+                  총 {actualRecordCount}개의 분석 기록이 저장되어 있습니다
+                </p>
+                <p className="text-xs text-blue-700">
+                  누적 분석 횟수: {user.analysisCount || 0}회 
+                  {(user.analysisCount || 0) > actualRecordCount && 
+                    ` (${(user.analysisCount || 0) - actualRecordCount}개 기록 삭제됨)`
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* 분석 기록 목록 */}
           {filteredAndSortedAnalyses.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
@@ -277,7 +319,10 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
                 />
               </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                분석 기록이 없습니다
+                {filterFramework === 'all' 
+                  ? '분석 기록이 없습니다' 
+                  : `${filterFramework} 지침서 분석 기록이 없습니다`
+                }
               </h3>
               <p className="text-gray-500 mb-4">
                 첫 번째 보안 분석을 시작해보세요!
@@ -445,7 +490,7 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
 
       {selectedTab === 'stats' && stats && (
         <div className="space-y-6">
-          {/* 전체 통계 카드 */}
+          {/* 전체 통계 카드 - 수정: 실제 기록 수와 총 분석 수를 구분 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center">
@@ -466,10 +511,13 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">
-                    총 분석 수
+                    저장된 기록 수
                   </p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {stats.totalAnalyses}
+                    {actualRecordCount}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    총 분석: {user.analysisCount || 0}회
                   </p>
                 </div>
               </div>
@@ -559,15 +607,15 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
           {/* 지침서 사용 통계 */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              지침서별 사용 통계
+              지침서별 사용 통계 (저장된 기록 기준)
             </h3>
             <div className="space-y-3">
               {Object.entries(stats.frameworkUsage).map(
                 ([framework, count]) => {
                   const frameworkInfo = getFrameworkInfo(framework);
-                  const percentage = Math.round(
-                    (count / stats.totalAnalyses) * 100
-                  );
+                  const percentage = actualRecordCount > 0 
+                    ? Math.round((count / actualRecordCount) * 100) 
+                    : 0;
 
                   return (
                     <div
@@ -608,14 +656,14 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
           {/* 장비 타입 사용 통계 */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              장비 타입별 사용 통계
+              장비 타입별 사용 통계 (저장된 기록 기준)
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(stats.deviceTypeUsage).map(
                 ([deviceType, count]) => {
-                  const percentage = Math.round(
-                    (count / stats.totalAnalyses) * 100
-                  );
+                  const percentage = actualRecordCount > 0 
+                    ? Math.round((count / actualRecordCount) * 100) 
+                    : 0;
 
                   return (
                     <div
@@ -663,6 +711,10 @@ const AnalysisHistory = ({ user, onSelectAnalysis }) => {
             </h3>
             <p className="text-gray-600 mb-6">
               이 분석 기록을 삭제하시겠습니까? 삭제된 기록은 복구할 수 없습니다.
+              <br />
+              <span className="text-sm text-gray-500">
+                (참고: 총 분석 횟수는 변경되지 않습니다)
+              </span>
             </p>
             <div className="flex space-x-3 justify-end">
               <button

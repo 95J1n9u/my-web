@@ -6,6 +6,7 @@ const Sidebar = ({
   serviceStatus,
   engineInfo,
   user,
+  analysisRecordCount = 0, // 새로 추가: 실제 저장된 기록 수
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -116,7 +117,8 @@ const Sidebar = ({
                 />
               </svg>
             ),
-            badge: user.analysisCount > 0 ? user.analysisCount : null,
+            // 수정: 실제 저장된 기록 수 표시
+            badge: analysisRecordCount > 0 ? analysisRecordCount : null,
           },
         ]
       : []),
@@ -175,11 +177,15 @@ const Sidebar = ({
               <p className="text-xs text-gray-500 truncate">{user.email}</p>
             </div>
           </div>
-          {user.analysisCount !== undefined && (
-            <div className="mt-2 text-xs text-blue-600">
-              총 {user.analysisCount}회 분석 완료
-            </div>
-          )}
+          {/* 수정: 총 분석 횟수와 저장된 기록 수를 구분하여 표시 */}
+          <div className="mt-2 text-xs text-blue-600">
+            <div>총 {user.analysisCount || 0}회 분석 완료</div>
+            {analysisRecordCount > 0 && (
+              <div className="text-green-600">
+                {analysisRecordCount}개 기록 저장됨
+              </div>
+            )}
+          </div>
         </div>
       )}
 

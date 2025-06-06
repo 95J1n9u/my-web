@@ -24,6 +24,7 @@ function App() {
   const [deviceTypes, setDeviceTypes] = useState([]);
   const [serviceStatus, setServiceStatus] = useState('checking');
   const [engineInfo, setEngineInfo] = useState(null);
+  const [analysisRecordCount, setAnalysisRecordCount] = useState(0);
 
   // Firebase 인증 상태 관리
   const [user, setUser] = useState(null);
@@ -114,9 +115,25 @@ function App() {
     console.log('로그인 성공:', userData);
     setUser(userData);
 
+    // 로그인 시 분석 기록 수 로드
+    if (userData.uid) {
+      loadAnalysisRecordCount(userData.uid);
+    }
+
     // 사용자 설정에 따른 초기화
     if (userData.preferences?.defaultFramework) {
       setSelectedFramework(userData.preferences.defaultFramework);
+    }
+  };
+
+  const loadAnalysisRecordCount = async (uid) => {
+    try {
+      const result = await authService.getUserAnalyses(uid, 100); // 최대 100개로 제한
+      if (result.success) {
+        setAnalysisRecordCount(result.analyses.length);
+      }
+    } catch (error) {
+      console.error('Failed to load analysis record count:', error);
     }
   };
 
@@ -200,7 +217,7 @@ function App() {
           description: 'Center for Internet Security Controls',
           isImplemented: true,
           status: 'active',
-          total_rules: 11,
+          total_rules: 89,
           version: 'v8',
         },
         {
@@ -390,6 +407,8 @@ function App() {
               'Analysis result saved successfully:',
               saveResult.analysisId
             );
+
+            setAnalysisRecordCount(prev => prev + 1);
           } else {
             console.error('Failed to save analysis result:', saveResult.error);
           }
@@ -520,6 +539,7 @@ function App() {
             frameworkStats,
           }}
           user={user}
+          analysisRecordCount={analysisRecordCount}
         />
       </div>
 
@@ -588,6 +608,11 @@ function App() {
                 onSelectAnalysis={analysis => {
                   // 선택한 분석 결과로 이동하는 기능 (추후 구현 가능)
                   console.log('Selected analysis:', analysis);
+                }}
+
+                // 분석 기록 삭제 시 카운트 업데이트를 위한 콜백
+                onRecordCountChange={(newCount) => {
+                  setAnalysisRecordCount(newCount);
                 }}
               />
             )}
