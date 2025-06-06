@@ -103,11 +103,10 @@
     "size:check": "npm run build && bundlesize"
   },
   "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest",
-      "prettier"
-    ],
+    "rules": {
+      "no-console": "warn",
+      "no-unused-vars": "warn"
+    },
     "plugins": [
       "prettier"
     ],

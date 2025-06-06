@@ -564,7 +564,7 @@ export const authService = {
       const analysesRef = collection(db, 'users', uid, 'analyses');
       const querySnapshot = await getDocs(analysesRef);
 
-      let stats = {
+      const stats = {
         totalAnalyses: 0,
         totalVulnerabilities: 0,
         frameworkUsage: {},
