@@ -149,10 +149,16 @@ service cloud.firestore {
                 request.resource.data.authorId == currentUserId();
   
   // 수정: 작성자 본인 또는 관리자
-  allow update: if isAuthenticated() && 
-                (resource.data.authorId == currentUserId() || 
-                 (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+    // 또는 인증된 사용자가 views 필드만 1 증가시키는 경우 허용
+  allow update: if isAuthenticated() && (
+                  (resource.data.authorId == currentUserId() ||
+                   (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')) ||
+                  (
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+                    request.resource.data.views == resource.data.views + 1
+                  )
+                );
   
   // 삭제: 작성자 본인 또는 관리자
   allow delete: if isAuthenticated() && 
@@ -192,11 +198,18 @@ service cloud.firestore {
                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
                     isValidNoticeData(request.resource.data);
       
-      // 수정: 관리자만
-      allow update: if isAuthenticated() && 
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-                    isValidNoticeUpdate(request.resource.data);
+      // 수정: 관리자 또는 인증된 사용자가 views 필드를 1 증가시키는 경우 허용
+      allow update: if isAuthenticated() && (
+                    (
+                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+                      isValidNoticeUpdate(request.resource.data)
+                    ) ||
+                    (
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+                      request.resource.data.views == resource.data.views + 1
+                    )
+                  );
       
       // 삭제: 관리자만
       allow delete: if isAuthenticated() && 
@@ -205,7 +218,7 @@ service cloud.firestore {
       
       // 공지사항 데이터 유효성 검증
       function isValidNoticeData(data) {
-        let validCategories = ['general', 'maintenance', 'update', 'security', 'event', 'emergency'];
+        let allowedFields = ['title', 'content', 'category', 'priority', 'isPinned', 'expiresAt', 'updatedAt', 'updatedBy', 'views'];
         let validPriorities = ['normal', 'high', 'urgent'];
         return data.keys().hasAll(['title', 'content', 'category', 'priority', 'authorId', 'createdAt', 'isPublished']) &&
                isValidString(data.title, 1, 200) &&

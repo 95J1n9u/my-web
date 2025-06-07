@@ -1,8 +1,8 @@
-// src/utils/validation.js (새 파일)
+
 export const validateFileContent = (content) => {
-  // 파일 크기 검증 (텍스트 기준 1MB)
-  if (content.length > 1024 * 1024) {
-    throw new Error('파일 내용이 너무 큽니다. (최대 1MB)');
+  // 파일 크기 검증 (텍스트 기준 50MB)
+  if (content.length > 50 * 1024 * 1024) {
+    throw new Error('파일 내용이 너무 큽니다. (최대 50MB)');
   }
 
   // 의심스러운 패턴 검사

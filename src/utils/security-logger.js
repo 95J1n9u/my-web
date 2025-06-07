@@ -1,4 +1,4 @@
-// src/utils/security-logger.js (새 파일)
+
 class SecurityLogger {
   static logSuspiciousActivity(event, details) {
     const logData = {

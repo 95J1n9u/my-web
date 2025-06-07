@@ -1,4 +1,4 @@
-// src/utils/sanitizer.js (새 파일)
+
 import DOMPurify from 'dompurify';
 
 export const sanitizeHtml = (dirty) => {

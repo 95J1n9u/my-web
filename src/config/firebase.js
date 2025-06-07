@@ -28,6 +28,7 @@ import {
   where,
   serverTimestamp,
   connectFirestoreEmulator,
+  increment,
 } from 'firebase/firestore';
 
 // Firebase 설정
@@ -720,10 +721,14 @@ getPost: async (postId) => {
       };
     }
 
-    // 조회수 증가
-    await updateDoc(postRef, {
-      views: (postDoc.data().views || 0) + 1,
-    });
+    // 조회수 증가 - 실패해도 무시
+    try {
+      await updateDoc(postRef, {
+        views: increment(1),
+      });
+    } catch (e) {
+      console.warn('Failed to increment post views:', e);
+    }
 
     const postData = {
       id: postDoc.id,
@@ -763,10 +768,14 @@ getNotice: async (noticeId) => {
       };
     }
 
-    // 조회수 증가
-    await updateDoc(noticeRef, {
-      views: (noticeDoc.data().views || 0) + 1,
-    });
+    // 조회수 증가 - 실패해도 무시
+    try {
+      await updateDoc(noticeRef, {
+        views: increment(1),
+      });
+    } catch (e) {
+      console.warn('Failed to increment notice views:', e);
+    }
 
     const noticeData = {
       id: noticeDoc.id,
@@ -860,7 +869,6 @@ updateNotice: async (noticeId, adminUid, updateData) => {
     const updatePayload = {
       ...updateData,
       updatedAt: serverTimestamp(),
-      updatedBy: adminUid,
     };
 
     await updateDoc(noticeRef, updatePayload);
