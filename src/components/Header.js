@@ -245,7 +245,7 @@ const Header = ({
 
                       {/* 메뉴 항목들 */}
                       <div className="mt-3 space-y-1">
-                        <button
+                        {/*<button
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200"
                           onClick={() => setShowUserDropdown(false)}
                         >
@@ -285,7 +285,7 @@ const Header = ({
                           분석 기록
                         </button>
 
-                        <div className="border-t border-gray-100 my-2"></div>
+                        <div className="border-t border-gray-100 my-2"></div>*/}
 
                         <button
                           onClick={handleLogout}

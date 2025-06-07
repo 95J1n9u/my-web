@@ -11,6 +11,7 @@ const AnalysisHistory = ({ user, onSelectAnalysis, onRecordCountChange }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [filterFramework, setFilterFramework] = useState('all');
   const [sortBy, setSortBy] = useState('date'); // 'date', 'vulnerabilities', 'score'
+  const [expandedVulnerabilities, setExpandedVulnerabilities] = useState({});
 
   // 실제 저장된 기록 수 계산
   const actualRecordCount = analyses.length;
@@ -331,158 +332,289 @@ const AnalysisHistory = ({ user, onSelectAnalysis, onRecordCountChange }) => {
           ) : (
             <div className="space-y-4">
               {filteredAndSortedAnalyses.map(analysis => {
-                const frameworkInfo = getFrameworkInfo(analysis.framework);
-                const securityScore =
-                  analysis.summary?.securityScore ||
-                  Math.round(
-                    (((analysis.summary?.totalChecks || 1) -
-                      (analysis.summary?.vulnerabilities || 0)) /
-                      (analysis.summary?.totalChecks || 1)) *
-                      100
-                  );
+              const frameworkInfo = getFrameworkInfo(analysis.framework);
+              const securityScore =
+                analysis.summary?.securityScore ||
+                Math.round(
+                  (((analysis.summary?.totalChecks || 1) -
+                    (analysis.summary?.vulnerabilities || 0)) /
+                    (analysis.summary?.totalChecks || 1)) *
+                    100
+                );
 
-                return (
-                  <div
-                    key={analysis.id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        {frameworkInfo && (
-                          <span
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: frameworkInfo.color }}
+              const isVulnerabilitiesExpanded = expandedVulnerabilities[analysis.id];
+              const hasVulnerabilities = analysis.vulnerabilities && analysis.vulnerabilities.length > 0;
+              const vulnerabilitiesCount = analysis.vulnerabilities?.length || 0;
+
+              return (
+                <div
+                  key={analysis.id}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      {frameworkInfo && (
+                        <span
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: frameworkInfo.color }}
+                        />
+                      )}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {analysis.framework} 분석
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {formatDate(analysis.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {/* 상세보기 버튼 */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          console.log('상세보기 버튼 클릭:', analysis.id);
+                          onSelectAnalysis(analysis);
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-1"
+                        title="상세 분석 결과 보기"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                           />
-                        )}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {analysis.framework} 분석
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            {formatDate(analysis.timestamp)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => setShowDeleteConfirm(analysis.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 transition-colors duration-200"
-                          title="삭제"
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          />
+                        </svg>
+                        <span>상세보기</span>
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(analysis.id)}
+                        className="p-2 text-gray-400 hover:text-red-600 transition-colors duration-200"
+                        title="삭제"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <div className="text-sm text-gray-600">장비 타입</div>
+                      <div className="font-medium">{analysis.deviceType}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">파일명</div>
+                      <div
+                        className="font-medium truncate"
+                        title={analysis.fileName}
+                      >
+                        {analysis.fileName}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">
+                        발견된 취약점
+                      </div>
+                      <div className="font-medium text-red-600">
+                        {analysis.summary?.vulnerabilities || 0}개
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">보안 점수</div>
+                      <div
+                        className={`font-medium ${securityScore >= 80 ? 'text-green-600' : securityScore >= 60 ? 'text-yellow-600' : 'text-red-600'}`}
+                      >
+                        {securityScore}점
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 취약점 요약 */}
+                  {analysis.summary && (
+                    <div className="flex items-center space-x-4 mb-4">
+                      {analysis.summary.highSeverity > 0 && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          고위험 {analysis.summary.highSeverity}개
+                        </span>
+                      )}
+                      {analysis.summary.mediumSeverity > 0 && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          중위험 {analysis.summary.mediumSeverity}개
+                        </span>
+                      )}
+                      {analysis.summary.lowSeverity > 0 && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          저위험 {analysis.summary.lowSeverity}개
+                        </span>
+                      )}
+                      {analysis.isComparison && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          비교 분석
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 취약점 목록 섹션 */}
+                  {hasVulnerabilities && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {isVulnerabilitiesExpanded ? 
+                            `모든 취약점 (${vulnerabilitiesCount}개)` : 
+                            `주요 취약점 (상위 ${Math.min(3, vulnerabilitiesCount)}개)`
+                          }
+                        </h4>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setExpandedVulnerabilities(prev => ({
+                                ...prev,
+                                [analysis.id]: !prev[analysis.id]
+                              }));
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 underline flex items-center space-x-1"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
+                            <span>
+                              {isVulnerabilitiesExpanded ? 
+                                '간단히 보기' : 
+                                `전체 ${vulnerabilitiesCount}개 보기`
+                              }
+                            </span>
+                            <svg
+                              className={`w-3 h-3 transition-transform duration-200 ${
+                                isVulnerabilitiesExpanded ? 'rotate-180' : ''
+                              }`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                      
+                      {/* 취약점 목록 */}
+                      <div className="space-y-2">
+                        {(isVulnerabilitiesExpanded ? 
+                          analysis.vulnerabilities : 
+                          analysis.vulnerabilities.slice(0, 3)
+                        ).map((vuln, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3 flex-1">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSeverityColor(vuln.severity)}`}
+                              >
+                                {vuln.severity}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-gray-900 truncate">
+                                  {vuln.description}
+                                </p>
+                                {vuln.recommendation && isVulnerabilitiesExpanded && (
+                                  <p className="text-xs text-gray-500 mt-1 truncate">
+                                    권장: {vuln.recommendation}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                              <div className="flex items-center space-x-2 flex-shrink-0">
+                                {vuln.ruleId && (
+                                  <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">
+                                    {vuln.ruleId}
+                                  </span>
+                                )}
+                                {isVulnerabilitiesExpanded && (
+                                  <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">
+                                    {typeof vuln.line === 'number' && vuln.line > 0
+                                      ? `라인 ${vuln.line}`
+                                      : '라인 정보 없음'}
+                                  </span>
+                                )}
+                              </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <div className="text-sm text-gray-600">장비 타입</div>
-                        <div className="font-medium">{analysis.deviceType}</div>
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <div className="text-sm text-gray-600">파일명</div>
-                        <div
-                          className="font-medium truncate"
-                          title={analysis.fileName}
-                        >
-                          {analysis.fileName}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-600">
-                          발견된 취약점
-                        </div>
-                        <div className="font-medium text-red-600">
-                          {analysis.summary?.vulnerabilities || 0}개
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-600">보안 점수</div>
-                        <div
-                          className={`font-medium ${securityScore >= 80 ? 'text-green-600' : securityScore >= 60 ? 'text-yellow-600' : 'text-red-600'}`}
-                        >
-                          {securityScore}점
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* 취약점 요약 */}
-                    {analysis.summary && (
-                      <div className="flex items-center space-x-4 mb-4">
-                        {analysis.summary.highSeverity > 0 && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            고위험 {analysis.summary.highSeverity}개
-                          </span>
-                        )}
-                        {analysis.summary.mediumSeverity > 0 && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            중위험 {analysis.summary.mediumSeverity}개
-                          </span>
-                        )}
-                        {analysis.summary.lowSeverity > 0 && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            저위험 {analysis.summary.lowSeverity}개
-                          </span>
-                        )}
-                        {analysis.isComparison && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            비교 분석
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 상위 취약점 미리보기 */}
-                    {analysis.vulnerabilities &&
-                      analysis.vulnerabilities.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <h4 className="text-sm font-medium text-gray-900 mb-2">
-                            주요 취약점 (상위{' '}
-                            {Math.min(3, analysis.vulnerabilities.length)}개)
-                          </h4>
-                          <div className="space-y-2">
-                            {analysis.vulnerabilities
-                              .slice(0, 3)
-                              .map((vuln, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-center justify-between"
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <span
-                                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSeverityColor(vuln.severity)}`}
-                                    >
-                                      {vuln.severity}
-                                    </span>
-                                    <span className="text-sm text-gray-600 truncate">
-                                      {vuln.description}
-                                    </span>
-                                  </div>
-                                  {vuln.ruleId && (
-                                    <span className="text-xs text-gray-400">
-                                      {vuln.ruleId}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
+                      {/* 확장된 상태에서 추가 정보 */}
+                      {isVulnerabilitiesExpanded && vulnerabilitiesCount > 0 && (
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>
+                              심각도별: 고위험 {analysis.summary?.highSeverity || 0}개, 
+                              중위험 {analysis.summary?.mediumSeverity || 0}개, 
+                              저위험 {analysis.summary?.lowSeverity || 0}개
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                onSelectAnalysis(analysis);
+                              }}
+                              className="text-blue-600 hover:text-blue-700 underline"
+                            >
+                              전체 분석 결과 보기
+                            </button>
                           </div>
                         </div>
                       )}
-                  </div>
-                );
-              })}
+                    </div>
+                  )}
+
+                  {/* 취약점이 없는 경우 */}
+                  {!hasVulnerabilities && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-green-600 font-medium">
+                          ✅ 취약점이 발견되지 않았습니다
+                        </p>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onSelectAnalysis(analysis);
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-700 underline"
+                        >
+                          상세 분석 결과 보기
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             </div>
           )}
         </>

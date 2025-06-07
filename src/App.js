@@ -30,6 +30,7 @@ function App() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [analysisResults, setAnalysisResults] = useState(null);
   const [comparisonResults, setComparisonResults] = useState(null);
+  const [selectedHistoryAnalysis, setSelectedHistoryAnalysis] = useState(null); // 추가
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   const [frameworks, setFrameworks] = useState([]);
@@ -195,6 +196,55 @@ useEffect(() => {
       setCommunityResetKey(prev => prev + 1); // 키 값 변경으로 컴포넌트 강제 리셋
     }
   };
+
+  // 분석 기록에서 상세보기 핸들러 추가
+  const handleSelectAnalysis = (analysisData) => {
+    console.log('Selected analysis for detail view:', analysisData);
+    
+    try {
+      // 저장된 분석 데이터를 VulnerabilityResults에서 사용할 수 있는 형태로 변환
+      const transformedData = {
+        summary: analysisData.summary || {
+          totalChecks: 0,
+          vulnerabilities: 0,
+          passed: 0,
+          highSeverity: 0,
+          mediumSeverity: 0,
+          lowSeverity: 0,
+        },
+        metadata: {
+          framework: analysisData.framework,
+          deviceType: analysisData.deviceType,
+          timestamp: analysisData.timestamp?.toDate ? 
+            analysisData.timestamp.toDate().toISOString() : 
+            new Date().toISOString(),
+          totalLines: analysisData.metadata?.totalLines || 0,
+          analysisTime: analysisData.metadata?.analysisTime || 0,
+          engineVersion: analysisData.metadata?.engineVersion || 'Historical',
+        },
+        vulnerabilities: analysisData.vulnerabilities || [],
+        isHistorical: true,
+        fileName: analysisData.fileName,
+        fileSize: analysisData.fileSize,
+      };
+
+      console.log('Transformed data for results view:', transformedData);
+      
+      // 상태 업데이트
+      setSelectedHistoryAnalysis(transformedData);
+      setAnalysisResults(transformedData);
+      setComparisonResults(null);
+      
+      // 결과 탭으로 이동
+      setActiveTab('results');
+      
+      console.log('Navigated to results tab');
+    } catch (error) {
+      console.error('Error processing analysis data:', error);
+      alert('분석 기록을 불러오는 중 오류가 발생했습니다.');
+    }
+  };
+
     // Firebase 로그인 성공 처리
   const handleLoginSuccess = async userData => {
     console.log('로그인 성공:', userData);
@@ -295,6 +345,7 @@ const forceRefreshUserData = async () => {
         // 분석 관련 상태도 초기화
         setAnalysisResults(null);
         setComparisonResults(null);
+        setSelectedHistoryAnalysis(null); // 추가
         setUploadedFile(null);
         setAnalysisError(null);
         setActiveTab('dashboard');
@@ -432,6 +483,7 @@ const forceRefreshUserData = async () => {
     setAnalysisError(null);
     setAnalysisResults(null);
     setComparisonResults(null);
+    setSelectedHistoryAnalysis(null); // 추가
 
     try {
       // 파일을 텍스트로 변환
@@ -623,6 +675,7 @@ const handleSignupSuccess = (userData) => {
     setUploadedFile(null);
     setAnalysisResults(null);
     setComparisonResults(null);
+    setSelectedHistoryAnalysis(null); // 추가
     setAnalysisError(null);
     setIsAnalyzing(false);
     setActiveTab('upload');
@@ -647,6 +700,9 @@ const handleSignupSuccess = (userData) => {
 
   // 현재 표시할 결과 결정 (단일 분석 또는 비교 분석)
   const getCurrentResults = () => {
+    if (selectedHistoryAnalysis) {
+      return selectedHistoryAnalysis;
+    }
     if (comparisonResults) {
       // 비교 분석 결과에서 첫 번째 성공한 결과를 기본으로 표시
       const firstSuccessfulResult = Object.values(
@@ -818,14 +874,13 @@ const handleSignupSuccess = (userData) => {
                 onRetry={handleRetryAnalysis}
                 onReset={resetAnalysis}
                 user={user}
+                isHistorical={!!selectedHistoryAnalysis} // 추가 prop
               />
             )}
             {activeTab === 'history' && user && (
               <AnalysisHistory
                 user={user}
-                onSelectAnalysis={analysis => {
-                  console.log('Selected analysis:', analysis);
-                }}
+                onSelectAnalysis={handleSelectAnalysis} // 수정된 핸들러 전달
                 onRecordCountChange={(newCount) => {
                   setAnalysisRecordCount(newCount);
                 }}
