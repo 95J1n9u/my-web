@@ -537,7 +537,7 @@ createPost: async (uid, postData) => {
 
     debugLog('Post created successfully', { docId: docRef.id });
 
-    return {
+    return { 
       success: true,
       postId: docRef.id,
     };
