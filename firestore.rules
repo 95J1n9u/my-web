@@ -219,7 +219,7 @@ service cloud.firestore {
       
       // 공지사항 업데이트 검증
       function isValidNoticeUpdate(data) {
-        let allowedFields = ['title', 'content', 'category', 'priority', 'isPinned', 'expiresAt', 'updatedAt', 'views'];
+        let allowedFields = ['title', 'content', 'category', 'priority', 'isPinned', 'expiresAt', 'updatedAt', 'updatedBy', 'views'];
         return data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
       }
     }
