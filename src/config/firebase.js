@@ -10,7 +10,7 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
-  sendEmailVerification,
+  sendEmailVerification, // 추가
   connectAuthEmulator,
 } from 'firebase/auth';
 
@@ -101,85 +101,87 @@ const checkFirebaseServices = () => {
 
 // 인증 관련 서비스 함수들
 export const authService = {
-  // 이메일 인증 재발송
-resendEmailVerification: async () => {
-  try {
-    checkFirebaseServices();
-    const user = auth.currentUser;
-    
-    if (!user) {
+
+    // 이메일 인증 재발송
+  resendEmailVerification: async () => {
+    try {
+      checkFirebaseServices();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        return {
+          success: false,
+          error: '로그인이 필요합니다.',
+        };
+      }
+
+      if (user.emailVerified) {
+        return {
+          success: false,
+          error: '이미 이메일 인증이 완료되었습니다.',
+        };
+      }
+
+      debugLog('Resending email verification');
+      await sendEmailVerification(user, {
+        url: window.location.origin + '/dashboard',
+        handleCodeInApp: false,
+      });
+
+      debugLog('Email verification resent successfully');
+
+      return {
+        success: true,
+        message: '인증 이메일이 재발송되었습니다.',
+      };
+    } catch (error) {
+      console.error('Email verification resend error:', error);
+      debugLog('Email verification resend error', error);
       return {
         success: false,
-        error: '로그인이 필요합니다.',
+        error: getErrorMessage(error.code),
       };
     }
+  },
 
-    if (user.emailVerified) {
+  // 이메일 인증 상태 새로고침
+  refreshEmailVerification: async () => {
+    try {
+      checkFirebaseServices();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        return {
+          success: false,
+          error: '로그인이 필요합니다.',
+        };
+      }
+
+      debugLog('Refreshing email verification status');
+      await user.reload(); // Firebase에서 최신 상태 가져오기
+
+      debugLog('Email verification status refreshed', { emailVerified: user.emailVerified });
+
+      return {
+        success: true,
+        emailVerified: user.emailVerified,
+      };
+    } catch (error) {
+      console.error('Email verification refresh error:', error);
+      debugLog('Email verification refresh error', error);
       return {
         success: false,
-        error: '이미 이메일 인증이 완료되었습니다.',
+        error: getErrorMessage(error.code),
       };
     }
+  },
 
-    debugLog('Resending email verification');
-    await sendEmailVerification(user, {
-      url: window.location.origin + '/dashboard',
-      handleCodeInApp: false,
-    });
-
-    debugLog('Email verification resent successfully');
-
-    return {
-      success: true,
-      message: '인증 이메일이 재발송되었습니다.',
-    };
-  } catch (error) {
-    console.error('Email verification resend error:', error);
-    debugLog('Email verification resend error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code),
-    };
-  }
-},
-
-// 이메일 인증 상태 새로고침
-refreshEmailVerification: async () => {
-  try {
-    checkFirebaseServices();
-    const user = auth.currentUser;
-    
-    if (!user) {
-      return {
-        success: false,
-        error: '로그인이 필요합니다.',
-      };
-    }
-
-    debugLog('Refreshing email verification status');
-    await user.reload(); // Firebase에서 최신 상태 가져오기
-
-    debugLog('Email verification status refreshed', { emailVerified: user.emailVerified });
-
-    return {
-      success: true,
-      emailVerified: user.emailVerified,
-    };
-  } catch (error) {
-    console.error('Email verification refresh error:', error);
-    debugLog('Email verification refresh error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code),
-    };
-  }
-},
-    // 사용자 권한 변경 (관리자만 가능)
+  // 사용자 권한 변경 (관리자만 가능)
   updateUserRole: async (adminUid, targetUid, newRole) => {
     try {
       checkFirebaseServices();
       debugLog('Updating user role', { adminUid, targetUid, newRole });
-      
+
       // 관리자 권한 확인
       const adminRef = doc(db, 'users', adminUid);
       const adminDoc = await getDoc(adminRef);
@@ -221,7 +223,7 @@ refreshEmailVerification: async () => {
       // 관리자 권한 확인
       const adminRef = doc(db, 'users', adminUid);
       const adminDoc = await getDoc(adminRef);
-      
+
       if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
         return {
           success: false,
@@ -275,7 +277,7 @@ refreshEmailVerification: async () => {
   },
 
   // 시스템 통계 조회 (관리자만 가능)
-  getSystemStats: async (adminUid) => {
+  getSystemStats: async adminUid => {
     try {
       checkFirebaseServices();
       debugLog('Fetching system stats', { adminUid });
@@ -283,7 +285,7 @@ refreshEmailVerification: async () => {
       // 관리자 권한 확인
       const adminRef = doc(db, 'users', adminUid);
       const adminDoc = await getDoc(adminRef);
-      
+
       if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
         return {
           success: false,
@@ -310,8 +312,6 @@ refreshEmailVerification: async () => {
         recentSignups: 0, // 최근 7일
         activeUsers: 0, // 최근 30일 로그인
       };
-
-      
 
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -342,7 +342,10 @@ refreshEmailVerification: async () => {
         }
 
         // 활성 사용자
-        if (userData.lastLoginAt && userData.lastLoginAt.toDate() > thirtyDaysAgo) {
+        if (
+          userData.lastLoginAt &&
+          userData.lastLoginAt.toDate() > thirtyDaysAgo
+        ) {
           stats.activeUsers++;
         }
       });
@@ -363,78 +366,91 @@ refreshEmailVerification: async () => {
     }
   },
 
-// 이메일/비밀번호 회원가입
-signUpWithEmail: async (email, password, displayName) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Starting email signup', { email, displayName });
+// 이메일/비밀번호 회원가입 - 수정된 버전
+  signUpWithEmail: async (email, password, displayName) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Starting email signup', { email, displayName });
 
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const user = result.user;
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const user = result.user;
 
-    debugLog('User created successfully', { uid: user.uid });
+      debugLog('User created successfully', { uid: user.uid });
 
-    // 이메일 인증 발송
-    debugLog('Sending email verification');
-    await sendEmailVerification(user, {
-      url: window.location.origin + '/dashboard', // 인증 완료 후 리다이렉트 URL
-      handleCodeInApp: false,
-    });
+      // 이메일 인증 발송
+      try {
+        debugLog('Sending email verification');
+        await sendEmailVerification(user, {
+          url: window.location.origin + '/dashboard',
+          handleCodeInApp: false,
+        });
+        debugLog('Email verification sent successfully');
+      } catch (verificationError) {
+        console.warn('Failed to send verification email:', verificationError);
+        // 인증 이메일 발송 실패해도 회원가입은 계속 진행
+      }
 
-    // 사용자 프로필 업데이트
-    await updateProfile(user, {
-      displayName: displayName,
-    });
+      // 사용자 프로필 업데이트
+      try {
+        await updateProfile(user, {
+          displayName: displayName,
+        });
+        debugLog('Profile updated');
+      } catch (profileError) {
+        console.warn('Failed to update profile:', profileError);
+      }
 
-    debugLog('Profile updated');
-
-    // Firestore에 사용자 정보 저장 (이메일 인증 상태 포함)
-    const userDocData = {
-      uid: user.uid,
-      email: user.email,
-      displayName: displayName,
-      role: 'user', // 기본 역할
-      emailVerified: false, // 이메일 인증 상태
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-      analysisCount: 0,
-      preferences: {
-        defaultFramework: 'KISA',
-        notifications: true,
-        theme: 'light',
-      },
-      provider: 'email',
-    };
-
-    debugLog('Saving user to Firestore', userDocData);
-
-    await setDoc(doc(db, 'users', user.uid), userDocData);
-
-    debugLog('User saved to Firestore successfully');
-
-    // 이메일 인증이 필요함을 알리는 특별한 응답
-    return {
-      success: true,
-      requiresEmailVerification: true,
-      user: {
+      // Firestore에 사용자 정보 저장
+      const userDocData = {
         uid: user.uid,
         email: user.email,
         displayName: displayName,
         role: 'user',
-        emailVerified: false,
-      },
-    };
-  } catch (error) {
-    console.error('Sign up error:', error);
-    debugLog('Signup error details', error);
+        emailVerified: false, // 초기에는 false
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        analysisCount: 0,
+        preferences: {
+          defaultFramework: 'KISA',
+          notifications: true,
+          theme: 'light',
+        },
+        provider: 'email',
+      };
 
-    return {
-      success: false,
-      error: getErrorMessage(error.code),
-      originalError: error,
-    };
-  }
-},
+      debugLog('Saving user to Firestore', userDocData);
+
+      try {
+        await setDoc(doc(db, 'users', user.uid), userDocData);
+        debugLog('User saved to Firestore successfully');
+      } catch (firestoreError) {
+        console.error('Failed to save user to Firestore:', firestoreError);
+        // Firestore 저장 실패해도 회원가입은 성공으로 처리
+      }
+
+      return {
+        success: true,
+        requiresEmailVerification: true, // 이메일 인증 필요함을 알림
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: displayName,
+          role: 'user',
+          emailVerified: false,
+        },
+      };
+    } catch (error) {
+      console.error('Sign up error:', error);
+      debugLog('Signup error details', error);
+
+      return {
+        success: false,
+        error: getErrorMessage(error.code),
+        originalError: error,
+      };
+    }
+  },
+
   // 이메일/비밀번호 로그인
   signInWithEmail: async (email, password) => {
     try {
@@ -481,14 +497,7 @@ signUpWithEmail: async (email, password, displayName) => {
 
         await setDoc(userDocRef, userData);
       }
-      // 이메일 인증 확인
-      if (!user.emailVerified) {
-        return {
-          success: false,
-          error: '이메일 인증이 완료되지 않았습니다. 이메일을 확인하고 인증을 완료해주세요.',
-          requiresEmailVerification: true,
-        };
-      }
+
       return {
         success: true,
         user: {
@@ -511,613 +520,718 @@ signUpWithEmail: async (email, password, displayName) => {
       };
     }
   },
-createPost: async (uid, postData) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Creating post', { uid, postData });
+  createPost: async (uid, postData) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Creating post', { uid, postData });
 
-    const postDoc = {
-      title: postData.title,
-      content: postData.content,
-      category: postData.category || 'general',
-      authorId: uid, // 이 필드가 중요합니다
-      authorName: postData.authorName,
-      authorEmail: postData.authorEmail,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      views: 0,
-      likes: 0,
-      comments: 0,
-      isPublished: true,
-      tags: postData.tags || [],
-    };
+      const postDoc = {
+        title: postData.title,
+        content: postData.content,
+        category: postData.category || 'general',
+        authorId: uid, // 이 필드가 중요합니다
+        authorName: postData.authorName,
+        authorEmail: postData.authorEmail,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        views: 0,
+        likes: 0,
+        comments: 0,
+        isPublished: true,
+        tags: postData.tags || [],
+      };
 
-    const postsRef = collection(db, 'posts');
-    const docRef = await addDoc(postsRef, postDoc);
+      const postsRef = collection(db, 'posts');
+      const docRef = await addDoc(postsRef, postDoc);
 
-    debugLog('Post created successfully', { docId: docRef.id });
+      debugLog('Post created successfully', { docId: docRef.id });
 
-    return { 
-      success: true,
-      postId: docRef.id,
-    };
-  } catch (error) {
-    console.error('Error creating post:', error);
-    debugLog('Post creation error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
-
-// 공지사항 작성 (관리자 전용)
-createNotice: async (adminUid, noticeData) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Creating notice', { adminUid, noticeData });
-
-    // 관리자 권한 확인
-    const adminRef = doc(db, 'users', adminUid);
-    const adminDoc = await getDoc(adminRef);
-    
-    if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+      return {
+        success: true,
+        postId: docRef.id,
+      };
+    } catch (error) {
+      console.error('Error creating post:', error);
+      debugLog('Post creation error', error);
       return {
         success: false,
-        error: '관리자 권한이 필요합니다.',
+        error: getErrorMessage(error.code) || error.message,
       };
     }
+  },
 
-    const noticeDoc = {
-      title: noticeData.title,
-      content: noticeData.content,
-      category: noticeData.category || 'general',
-      priority: noticeData.priority || 'normal', // normal, high, urgent
-      authorId: adminUid,
-      authorName: noticeData.authorName,
-      authorEmail: noticeData.authorEmail,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      views: 0,
-      isPublished: true,
-      isPinned: noticeData.isPinned || false,
-      expiresAt: noticeData.expiresAt || null,
-    };
+  // 공지사항 작성 (관리자 전용)
+  createNotice: async (adminUid, noticeData) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Creating notice', { adminUid, noticeData });
 
-    const noticesRef = collection(db, 'notices');
-    const docRef = await addDoc(noticesRef, noticeDoc);
+      // 관리자 권한 확인
+      const adminRef = doc(db, 'users', adminUid);
+      const adminDoc = await getDoc(adminRef);
 
-    debugLog('Notice created successfully', { docId: docRef.id });
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return {
+          success: false,
+          error: '관리자 권한이 필요합니다.',
+        };
+      }
 
-    return {
-      success: true,
-      noticeId: docRef.id,
-    };
-  } catch (error) {
-    console.error('Error creating notice:', error);
-    debugLog('Notice creation error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
+      const noticeDoc = {
+        title: noticeData.title,
+        content: noticeData.content,
+        category: noticeData.category || 'general',
+        priority: noticeData.priority || 'normal', // normal, high, urgent
+        authorId: adminUid,
+        authorName: noticeData.authorName,
+        authorEmail: noticeData.authorEmail,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        views: 0,
+        isPublished: true,
+        isPinned: noticeData.isPinned || false,
+        expiresAt: noticeData.expiresAt || null,
+      };
 
-// 게시글 목록 조회
-getPosts: async (limitCount = 20, category = null) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Fetching posts', { limitCount, category });
+      const noticesRef = collection(db, 'notices');
+      const docRef = await addDoc(noticesRef, noticeDoc);
 
-    const postsRef = collection(db, 'posts');
-    let q = query(
-      postsRef,
-      where('isPublished', '==', true),
-      orderBy('createdAt', 'desc'),
-      limit(limitCount)
-    );
+      debugLog('Notice created successfully', { docId: docRef.id });
 
-    if (category && category !== 'all') {
-      q = query(
+      return {
+        success: true,
+        noticeId: docRef.id,
+      };
+    } catch (error) {
+      console.error('Error creating notice:', error);
+      debugLog('Notice creation error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 게시글 목록 조회
+  getPosts: async (limitCount = 20, category = null) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching posts', { limitCount, category });
+
+      const postsRef = collection(db, 'posts');
+      let q = query(
         postsRef,
         where('isPublished', '==', true),
-        where('category', '==', category),
         orderBy('createdAt', 'desc'),
         limit(limitCount)
       );
-    }
 
-    const querySnapshot = await getDocs(q);
-    const posts = [];
-
-    querySnapshot.forEach(doc => {
-      posts.push({
-        id: doc.id,
-        ...doc.data(),
-      });
-    });
-
-    debugLog('Posts fetched successfully', { count: posts.length });
-
-    return {
-      success: true,
-      posts: posts,
-      count: posts.length,
-    };
-  } catch (error) {
-    console.error('Error fetching posts:', error);
-    debugLog('Posts fetch error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-      posts: [],
-    };
-  }
-},
-
-// 공지사항 목록 조회 (인덱스 문제 해결)
-getNotices: async (limitCount = 10) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Fetching notices', { limitCount });
-
-    const noticesRef = collection(db, 'notices');
-    // 단순한 쿼리로 변경 (where + orderBy 복합 인덱스 문제 해결)
-    const q = query(
-      noticesRef,
-      orderBy('createdAt', 'desc'),
-      limit(limitCount * 2) // 여유분을 두고 가져온 후 클라이언트에서 필터링
-    );
-
-    const querySnapshot = await getDocs(q);
-    const notices = [];
-
-    querySnapshot.forEach(doc => {
-      const data = doc.data();
-      // 클라이언트 사이드에서 isPublished 필터링
-      if (data.isPublished === true) {
-        notices.push({
-          id: doc.id,
-          ...data,
-        });
+      if (category && category !== 'all') {
+        q = query(
+          postsRef,
+          where('isPublished', '==', true),
+          where('category', '==', category),
+          orderBy('createdAt', 'desc'),
+          limit(limitCount)
+        );
       }
-    });
 
-    // 최대 개수로 제한
-    const limitedNotices = notices.slice(0, limitCount);
+      const querySnapshot = await getDocs(q);
+      const posts = [];
 
-    // 클라이언트 사이드에서 isPinned로 정렬
-    limitedNotices.sort((a, b) => {
-      // 먼저 isPinned로 정렬 (고정된 글이 위로)
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      
-      // 그 다음 createdAt으로 정렬
-      const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
-      const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
-      return bDate - aDate;
-    });
-
-    debugLog('Notices fetched successfully', { count: limitedNotices.length });
-
-    return {
-      success: true,
-      notices: limitedNotices,
-      count: limitedNotices.length,
-    };
-  } catch (error) {
-    console.error('Error fetching notices:', error);
-    debugLog('Notices fetch error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-      notices: [],
-    };
-  }
-},
-// 게시글 수정 (새로 추가)
-updatePost: async (postId, authorId, updateData) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Updating post', { postId, authorId, updateData });
-
-    const postRef = doc(db, 'posts', postId);
-    const postDoc = await getDoc(postRef);
-
-    if (!postDoc.exists()) {
-      return {
-        success: false,
-        error: '게시글을 찾을 수 없습니다.',
-      };
-    }
-
-    // 작성자 확인
-    if (postDoc.data().authorId !== authorId) {
-      return {
-        success: false,
-        error: '게시글을 수정할 권한이 없습니다.',
-      };
-    }
-
-    const updatePayload = {
-      ...updateData,
-      updatedAt: serverTimestamp(),
-    };
-
-    await updateDoc(postRef, updatePayload);
-
-    debugLog('Post updated successfully');
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error updating post:', error);
-    debugLog('Post update error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
-
-// 게시글 삭제 (새로 추가)
-deletePost: async (postId, authorId) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Deleting post', { postId, authorId });
-
-    const postRef = doc(db, 'posts', postId);
-    const postDoc = await getDoc(postRef);
-
-    if (!postDoc.exists()) {
-      return {
-        success: false,
-        error: '게시글을 찾을 수 없습니다.',
-      };
-    }
-
-    // 작성자 확인
-    if (postDoc.data().authorId !== authorId) {
-      return {
-        success: false,
-        error: '게시글을 삭제할 권한이 없습니다.',
-      };
-    }
-
-    await deleteDoc(postRef);
-
-    debugLog('Post deleted successfully');
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error deleting post:', error);
-    debugLog('Post delete error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
-// 게시글 상세 조회 및 조회수 증가
-getPost: async (postId) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Fetching post', { postId });
-
-    const postRef = doc(db, 'posts', postId);
-    const postDoc = await getDoc(postRef);
-
-    if (!postDoc.exists()) {
-      return {
-        success: false,
-        error: '게시글을 찾을 수 없습니다.',
-      };
-    }
-
-    // 조회수 증가 - 실패해도 무시
-    try {
-      await updateDoc(postRef, {
-        views: increment(1),
-      });
-    } catch (e) {
-      console.warn('Failed to increment post views:', e);
-    }
-
-    const postData = {
-      id: postDoc.id,
-      ...postDoc.data(),
-      views: (postDoc.data().views || 0) + 1,
-    };
-
-    debugLog('Post fetched successfully', { postId: postData.id });
-
-    return {
-      success: true,
-      post: postData,
-    };
-  } catch (error) {
-    console.error('Error fetching post:', error);
-    debugLog('Post fetch error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
-
-// 공지사항 상세 조회 및 조회수 증가
-getNotice: async (noticeId) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Fetching notice', { noticeId });
-
-    const noticeRef = doc(db, 'notices', noticeId);
-    const noticeDoc = await getDoc(noticeRef);
-
-    if (!noticeDoc.exists()) {
-      return {
-        success: false,
-        error: '공지사항을 찾을 수 없습니다.',
-      };
-    }
-
-    // 조회수 증가 - 실패해도 무시
-    try {
-      await updateDoc(noticeRef, {
-        views: increment(1),
-      });
-    } catch (e) {
-      console.warn('Failed to increment notice views:', e);
-    }
-
-    const noticeData = {
-      id: noticeDoc.id,
-      ...noticeDoc.data(),
-      views: (noticeDoc.data().views || 0) + 1,
-    };
-
-    debugLog('Notice fetched successfully', { noticeId: noticeData.id });
-
-    return {
-      success: true,
-      notice: noticeData,
-    };
-  } catch (error) {
-    console.error('Error fetching notice:', error);
-    debugLog('Notice fetch error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
-// 공지사항 삭제 (관리자 전용) - 새로 추가
-deleteNotice: async (noticeId, adminUid) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Deleting notice', { noticeId, adminUid });
-
-    // 관리자 권한 확인
-    const adminRef = doc(db, 'users', adminUid);
-    const adminDoc = await getDoc(adminRef);
-    
-    if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
-      return {
-        success: false,
-        error: '관리자 권한이 필요합니다.',
-      };
-    }
-
-    const noticeRef = doc(db, 'notices', noticeId);
-    const noticeDoc = await getDoc(noticeRef);
-
-    if (!noticeDoc.exists()) {
-      return {
-        success: false,
-        error: '공지사항을 찾을 수 없습니다.',
-      };
-    }
-
-    await deleteDoc(noticeRef);
-
-    debugLog('Notice deleted successfully');
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error deleting notice:', error);
-    debugLog('Notice delete error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
-// 공지사항 수정 (관리자 전용) - 새로 추가
-updateNotice: async (noticeId, adminUid, updateData) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Updating notice', { noticeId, adminUid, updateData });
-
-    // 관리자 권한 확인
-    const adminRef = doc(db, 'users', adminUid);
-    const adminDoc = await getDoc(adminRef);
-    
-    if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
-      return {
-        success: false,
-        error: '관리자 권한이 필요합니다.',
-      };
-    }
-
-    const noticeRef = doc(db, 'notices', noticeId);
-    const noticeDoc = await getDoc(noticeRef);
-
-    if (!noticeDoc.exists()) {
-      return {
-        success: false,
-        error: '공지사항을 찾을 수 없습니다.',
-      };
-    }
-
-    const updatePayload = {
-      ...updateData,
-      updatedAt: serverTimestamp(),
-    };
-
-    await updateDoc(noticeRef, updatePayload);
-
-    debugLog('Notice updated successfully');
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error updating notice:', error);
-    debugLog('Notice update error', error);
-    return {
-      success: false,
-      error: getErrorMessage(error.code) || error.message,
-    };
-  }
-},
-// 최대한 단순한 게시글 조회
-getPosts: async (limitCount = 20, category = null) => {
-  try {
-    checkFirebaseServices();
-    debugLog('Fetching posts', { limitCount, category });
-
-    const postsRef = collection(db, 'posts');
-    // 가장 단순한 쿼리
-    const q = query(postsRef, limit(100));
-
-    const querySnapshot = await getDocs(q);
-    const posts = [];
-
-    querySnapshot.forEach(doc => {
-      const data = doc.data();
-      const isPublished = data.isPublished === true;
-      const matchesCategory = !category || category === 'all' || data.category === category;
-      
-      if (isPublished && matchesCategory) {
+      querySnapshot.forEach(doc => {
         posts.push({
           id: doc.id,
-          ...data,
+          ...doc.data(),
+        });
+      });
+
+      debugLog('Posts fetched successfully', { count: posts.length });
+
+      return {
+        success: true,
+        posts: posts,
+        count: posts.length,
+      };
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      debugLog('Posts fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+        posts: [],
+      };
+    }
+  },
+
+  // 공지사항 목록 조회 (인덱스 문제 해결)
+  getNotices: async (limitCount = 10) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching notices', { limitCount });
+
+      const noticesRef = collection(db, 'notices');
+      // 단순한 쿼리로 변경 (where + orderBy 복합 인덱스 문제 해결)
+      const q = query(
+        noticesRef,
+        orderBy('createdAt', 'desc'),
+        limit(limitCount * 2) // 여유분을 두고 가져온 후 클라이언트에서 필터링
+      );
+
+      const querySnapshot = await getDocs(q);
+      const notices = [];
+
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        // 클라이언트 사이드에서 isPublished 필터링
+        if (data.isPublished === true) {
+          notices.push({
+            id: doc.id,
+            ...data,
+          });
+        }
+      });
+
+      // 최대 개수로 제한
+      const limitedNotices = notices.slice(0, limitCount);
+
+      // 클라이언트 사이드에서 isPinned로 정렬
+      limitedNotices.sort((a, b) => {
+        // 먼저 isPinned로 정렬 (고정된 글이 위로)
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+
+        // 그 다음 createdAt으로 정렬
+        const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
+        const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
+        return bDate - aDate;
+      });
+
+      debugLog('Notices fetched successfully', {
+        count: limitedNotices.length,
+      });
+
+      return {
+        success: true,
+        notices: limitedNotices,
+        count: limitedNotices.length,
+      };
+    } catch (error) {
+      console.error('Error fetching notices:', error);
+      debugLog('Notices fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+        notices: [],
+      };
+    }
+  },
+  // 게시글 수정 (새로 추가)
+  updatePost: async (postId, authorId, updateData) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Updating post', { postId, authorId, updateData });
+
+      const postRef = doc(db, 'posts', postId);
+      const postDoc = await getDoc(postRef);
+
+      if (!postDoc.exists()) {
+        return {
+          success: false,
+          error: '게시글을 찾을 수 없습니다.',
+        };
+      }
+
+      // 작성자 확인
+      if (postDoc.data().authorId !== authorId) {
+        return {
+          success: false,
+          error: '게시글을 수정할 권한이 없습니다.',
+        };
+      }
+
+      const updatePayload = {
+        ...updateData,
+        updatedAt: serverTimestamp(),
+      };
+
+      await updateDoc(postRef, updatePayload);
+
+      debugLog('Post updated successfully');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating post:', error);
+      debugLog('Post update error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 게시글 삭제 (새로 추가)
+  deletePost: async (postId, authorId) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Deleting post', { postId, authorId });
+
+      const postRef = doc(db, 'posts', postId);
+      const postDoc = await getDoc(postRef);
+
+      if (!postDoc.exists()) {
+        return {
+          success: false,
+          error: '게시글을 찾을 수 없습니다.',
+        };
+      }
+
+      // 작성자 확인
+      if (postDoc.data().authorId !== authorId) {
+        return {
+          success: false,
+          error: '게시글을 삭제할 권한이 없습니다.',
+        };
+      }
+
+      await deleteDoc(postRef);
+
+      debugLog('Post deleted successfully');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      debugLog('Post delete error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+  // 게시글 상세 조회 및 조회수 증가
+  getPost: async postId => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching post', { postId });
+
+      const postRef = doc(db, 'posts', postId);
+      const postDoc = await getDoc(postRef);
+
+      if (!postDoc.exists()) {
+        return {
+          success: false,
+          error: '게시글을 찾을 수 없습니다.',
+        };
+      }
+
+      // 조회수 증가 - 실패해도 무시
+      try {
+        await updateDoc(postRef, {
+          views: increment(1),
+        });
+      } catch (e) {
+        console.warn('Failed to increment post views:', e);
+      }
+
+      const postData = {
+        id: postDoc.id,
+        ...postDoc.data(),
+        views: (postDoc.data().views || 0) + 1,
+      };
+
+      debugLog('Post fetched successfully', { postId: postData.id });
+
+      return {
+        success: true,
+        post: postData,
+      };
+    } catch (error) {
+      console.error('Error fetching post:', error);
+      debugLog('Post fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 댓글 작성
+  createComment: async (postId, uid, commentData) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Creating comment', { postId, uid, commentData });
+
+      const commentDoc = {
+        content: commentData.content,
+        authorId: uid,
+        authorName: commentData.authorName,
+        createdAt: serverTimestamp(),
+      };
+
+      const commentsRef = collection(db, 'posts', postId, 'comments');
+      const docRef = await addDoc(commentsRef, commentDoc);
+
+      // 댓글 수 증가 (실패해도 무시)
+      try {
+        const postRef = doc(db, 'posts', postId);
+        await updateDoc(postRef, { comments: increment(1) });
+      } catch (e) {
+        console.warn('Failed to increment comment count:', e);
+      }
+
+      debugLog('Comment created successfully', { commentId: docRef.id });
+
+      return { success: true, commentId: docRef.id };
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      debugLog('Comment creation error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 댓글 목록 조회
+  getComments: async (postId, limitCount = 50) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching comments', { postId, limitCount });
+
+      const commentsRef = collection(db, 'posts', postId, 'comments');
+      const q = query(
+        commentsRef,
+        orderBy('createdAt', 'asc'),
+        limit(limitCount)
+      );
+
+      const snapshot = await getDocs(q);
+      const comments = [];
+
+      snapshot.forEach(doc => {
+        comments.push({ id: doc.id, ...doc.data() });
+      });
+
+      debugLog('Comments fetched', { count: comments.length });
+
+      return { success: true, comments };
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      debugLog('Comments fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+        comments: [],
+      };
+    }
+  },
+
+  // 댓글 삭제
+  deleteComment: async (postId, commentId) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Deleting comment', { postId, commentId });
+
+      const commentRef = doc(db, 'posts', postId, 'comments', commentId);
+      await deleteDoc(commentRef);
+
+      // 댓글 수 감소 (실패해도 무시)
+      try {
+        const postRef = doc(db, 'posts', postId);
+        await updateDoc(postRef, { comments: increment(-1) });
+      } catch (e) {
+        console.warn('Failed to decrement comment count:', e);
+      }
+
+      debugLog('Comment deleted');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      debugLog('Comment delete error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // 공지사항 상세 조회 및 조회수 증가
+  getNotice: async noticeId => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching notice', { noticeId });
+
+      const noticeRef = doc(db, 'notices', noticeId);
+      const noticeDoc = await getDoc(noticeRef);
+
+      if (!noticeDoc.exists()) {
+        return {
+          success: false,
+          error: '공지사항을 찾을 수 없습니다.',
+        };
+      }
+
+      // 조회수 증가 - 실패해도 무시
+      try {
+        await updateDoc(noticeRef, {
+          views: increment(1),
+        });
+      } catch (e) {
+        console.warn('Failed to increment notice views:', e);
+      }
+
+      const noticeData = {
+        id: noticeDoc.id,
+        ...noticeDoc.data(),
+        views: (noticeDoc.data().views || 0) + 1,
+      };
+
+      debugLog('Notice fetched successfully', { noticeId: noticeData.id });
+
+      return {
+        success: true,
+        notice: noticeData,
+      };
+    } catch (error) {
+      console.error('Error fetching notice:', error);
+      debugLog('Notice fetch error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+  // 공지사항 삭제 (관리자 전용) - 새로 추가
+  deleteNotice: async (noticeId, adminUid) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Deleting notice', { noticeId, adminUid });
+
+      // 관리자 권한 확인
+      const adminRef = doc(db, 'users', adminUid);
+      const adminDoc = await getDoc(adminRef);
+
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return {
+          success: false,
+          error: '관리자 권한이 필요합니다.',
+        };
+      }
+
+      const noticeRef = doc(db, 'notices', noticeId);
+      const noticeDoc = await getDoc(noticeRef);
+
+      if (!noticeDoc.exists()) {
+        return {
+          success: false,
+          error: '공지사항을 찾을 수 없습니다.',
+        };
+      }
+
+      await deleteDoc(noticeRef);
+
+      debugLog('Notice deleted successfully');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting notice:', error);
+      debugLog('Notice delete error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+  // 공지사항 수정 (관리자 전용) - 새로 추가
+  updateNotice: async (noticeId, adminUid, updateData) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Updating notice', { noticeId, adminUid, updateData });
+
+      // 관리자 권한 확인
+      const adminRef = doc(db, 'users', adminUid);
+      const adminDoc = await getDoc(adminRef);
+
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return {
+          success: false,
+          error: '관리자 권한이 필요합니다.',
+        };
+      }
+
+      const noticeRef = doc(db, 'notices', noticeId);
+      const noticeDoc = await getDoc(noticeRef);
+
+      if (!noticeDoc.exists()) {
+        return {
+          success: false,
+          error: '공지사항을 찾을 수 없습니다.',
+        };
+      }
+
+      const updatePayload = {
+        ...updateData,
+        updatedAt: serverTimestamp(),
+      };
+
+      await updateDoc(noticeRef, updatePayload);
+
+      debugLog('Notice updated successfully');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating notice:', error);
+      debugLog('Notice update error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+  // 최대한 단순한 게시글 조회
+  getPosts: async (limitCount = 20, category = null) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching posts', { limitCount, category });
+
+      const postsRef = collection(db, 'posts');
+      // 가장 단순한 쿼리
+      const q = query(postsRef, limit(100));
+
+      const querySnapshot = await getDocs(q);
+      const posts = [];
+
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        const isPublished = data.isPublished === true;
+        const matchesCategory =
+          !category || category === 'all' || data.category === category;
+
+        if (isPublished && matchesCategory) {
+          posts.push({
+            id: doc.id,
+            ...data,
+          });
+        }
+      });
+
+      // 클라이언트에서 정렬 및 제한
+      posts.sort((a, b) => {
+        const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
+        const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
+        return bDate - aDate;
+      });
+
+      const limitedPosts = posts.slice(0, limitCount);
+
+      return {
+        success: true,
+        posts: limitedPosts,
+        count: limitedPosts.length,
+      };
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      return {
+        success: false,
+        error: error.message,
+        posts: [],
+      };
+    }
+  },
+  // Google 로그인
+  signInWithGoogle: async () => {
+    try {
+      checkFirebaseServices();
+      debugLog('Starting Google signin');
+
+      // 팝업 차단 확인
+      const popup = window.open('', '', 'width=1,height=1');
+      if (!popup || popup.closed || typeof popup.closed == 'undefined') {
+        throw new Error('popup-blocked');
+      }
+      popup.close();
+
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      debugLog('Google signin successful', { uid: user.uid });
+
+      // Firestore에서 기존 사용자 확인
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      let userData = {};
+      if (!userDoc.exists()) {
+        debugLog('New Google user, creating Firestore document');
+        // 새 사용자인 경우 Firestore에 정보 저장
+        userData = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          role: 'user', // 기본 역할
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          analysisCount: 0,
+          preferences: {
+            defaultFramework: 'KISA',
+            notifications: true,
+            theme: 'light',
+          },
+          provider: 'google',
+        };
+
+        await setDoc(userDocRef, userData);
+      } else {
+        debugLog('Existing Google user, updating last login');
+        userData = userDoc.data();
+        // 기존 사용자의 마지막 로그인 시간 업데이트
+        await updateDoc(userDocRef, {
+          lastLoginAt: serverTimestamp(),
+          photoURL: user.photoURL, // 프로필 사진 업데이트
         });
       }
-    });
 
-    // 클라이언트에서 정렬 및 제한
-    posts.sort((a, b) => {
-      const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
-      const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
-      return bDate - aDate;
-    });
-
-    const limitedPosts = posts.slice(0, limitCount);
-
-    return {
-      success: true,
-      posts: limitedPosts,
-      count: limitedPosts.length,
-    };
-  } catch (error) {
-    console.error('Error fetching posts:', error);
-    return {
-      success: false,
-      error: error.message,
-      posts: [],
-    };
-  }
-},
-  // Google 로그인
-signInWithGoogle: async () => {
-  try {
-    checkFirebaseServices();
-    debugLog('Starting Google signin');
-
-    // 팝업 차단 확인
-    const popup = window.open('', '', 'width=1,height=1');
-    if (!popup || popup.closed || typeof popup.closed == 'undefined') {
-      throw new Error('popup-blocked');
-    }
-    popup.close();
-
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-
-    debugLog('Google signin successful', { uid: user.uid });
-
-    // Firestore에서 기존 사용자 확인
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    let userData = {};
-    if (!userDoc.exists()) {
-      debugLog('New Google user, creating Firestore document');
-      // 새 사용자인 경우 Firestore에 정보 저장
-      userData = {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        role: 'user', // 기본 역할
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-        analysisCount: 0,
-        preferences: {
-          defaultFramework: 'KISA',
-          notifications: true,
-          theme: 'light',
+      return {
+        success: true,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          role: userData.role || 'user',
+          analysisCount: userData.analysisCount || 0,
+          preferences: userData.preferences || {},
         },
-        provider: 'google',
       };
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      debugLog('Google signin error details', error);
 
-      await setDoc(userDocRef, userData);
-    } else {
-      debugLog('Existing Google user, updating last login');
-      userData = userDoc.data();
-      // 기존 사용자의 마지막 로그인 시간 업데이트
-      await updateDoc(userDocRef, {
-        lastLoginAt: serverTimestamp(),
-        photoURL: user.photoURL, // 프로필 사진 업데이트
-      });
-    }
+      // 특별한 Google 로그인 에러 처리
+      if (error.code === 'auth/popup-closed-by-user') {
+        return {
+          success: false,
+          error: '로그인 창이 닫혔습니다. 다시 시도해주세요.',
+        };
+      }
 
-    return {
-      success: true,
-      user: {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        role: userData.role || 'user',
-        analysisCount: userData.analysisCount || 0,
-        preferences: userData.preferences || {},
-      },
-    };
-  } catch (error) {
-    console.error('Google sign in error:', error);
-    debugLog('Google signin error details', error);
+      if (error.message === 'popup-blocked') {
+        return {
+          success: false,
+          error:
+            '팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.',
+        };
+      }
 
-    // 특별한 Google 로그인 에러 처리
-    if (error.code === 'auth/popup-closed-by-user') {
       return {
         success: false,
-        error: '로그인 창이 닫혔습니다. 다시 시도해주세요.',
+        error: getErrorMessage(error.code),
+        originalError: error,
       };
     }
-
-    if (error.message === 'popup-blocked') {
-      return {
-        success: false,
-        error: '팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.',
-      };
-    }
-
-    return {
-      success: false,
-      error: getErrorMessage(error.code),
-      originalError: error,
-    };
-  }
-},
+  },
 
   // 로그아웃
   signOut: async () => {
@@ -1166,30 +1280,30 @@ signInWithGoogle: async () => {
     }
   },
 
-// 사용자 분석 횟수 증가
+  // 사용자 분석 횟수 증가
   incrementAnalysisCount: async uid => {
     try {
       checkFirebaseServices();
       debugLog('Incrementing analysis count', { uid });
       const userRef = doc(db, 'users', uid);
-      
+
       // 현재 문서 가져오기
       const userDoc = await getDoc(userRef);
 
       if (userDoc.exists()) {
         const currentCount = userDoc.data().analysisCount || 0;
         const newCount = currentCount + 1;
-        
+
         await updateDoc(userRef, {
           analysisCount: newCount,
           lastAnalysisAt: serverTimestamp(),
         });
-        
-        debugLog('Analysis count incremented', { 
-          oldCount: currentCount, 
-          newCount: newCount 
+
+        debugLog('Analysis count incremented', {
+          oldCount: currentCount,
+          newCount: newCount,
         });
-        
+
         return {
           success: true,
           newCount: newCount,
@@ -1202,10 +1316,10 @@ signInWithGoogle: async () => {
           lastAnalysisAt: serverTimestamp(),
           createdAt: serverTimestamp(),
         };
-        
+
         await setDoc(userRef, initialData);
         debugLog('User document created with analysis count', { count: 1 });
-        
+
         return {
           success: true,
           newCount: 1,
@@ -1535,7 +1649,7 @@ const getErrorMessage = errorCode => {
     'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
     'auth/email-already-in-use': '이미 사용 중인 이메일입니다.',
     'auth/weak-password': '비밀번호가 너무 약합니다. 9자 이상의 영문, 숫자, 특수문자를 조합해주세요.',
-    'auth/password-does-not-meet-requirements': '비밀번호가 보안 요구사항을 충족하지 않습니다.\n9자 이상의 영문, 숫자, 특수문자를 조합해주세요.',
+    'auth/password-does-not-meet-requirements': '비밀번호가 보안 요구사항을 충족하지 않습니다. 9자 이상의 영문, 숫자, 특수문자를 조합해주세요.',
     'auth/invalid-email': '유효하지 않은 이메일 주소입니다.',
     'auth/invalid-credential': '잘못된 인증 정보입니다.',
     'auth/too-many-requests':
@@ -1568,7 +1682,8 @@ const getErrorMessage = errorCode => {
     'auth/invalid-action-code': '올바르지 않은 인증 코드입니다.',
 
     // Firestore 관련
-    'firestore/permission-denied': 'Firestore 접근 권한이 없습니다. 로그인 상태를 확인해주세요.',
+    'firestore/permission-denied':
+      'Firestore 접근 권한이 없습니다. 로그인 상태를 확인해주세요.',
     'firestore/unavailable': 'Firestore 서비스를 사용할 수 없습니다.',
     'firestore/deadline-exceeded': 'Firestore 요청 시간이 초과되었습니다.',
     'firestore/unauthenticated': '인증이 필요합니다. 다시 로그인해주세요.',

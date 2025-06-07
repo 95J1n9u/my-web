@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../config/firebase';
+import Comments from './Comments';
 
 const PostDetail = ({ postId, user, onBack, onEdit, onDelete }) => {
   const [post, setPost] = useState(null);
@@ -55,7 +56,7 @@ const PostDetail = ({ postId, user, onBack, onEdit, onDelete }) => {
     }
   };
 
-  const formatDate = (timestamp) => {
+  const formatDate = timestamp => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('ko-KR', {
@@ -67,7 +68,7 @@ const PostDetail = ({ postId, user, onBack, onEdit, onDelete }) => {
     });
   };
 
-  const getCategoryColor = (category) => {
+  const getCategoryColor = category => {
     const colors = {
       general: 'bg-blue-100 text-blue-800',
       question: 'bg-green-100 text-green-800',
@@ -79,7 +80,7 @@ const PostDetail = ({ postId, user, onBack, onEdit, onDelete }) => {
     return colors[category] || 'bg-gray-100 text-gray-800';
   };
 
-  const getCategoryLabel = (category) => {
+  const getCategoryLabel = category => {
     const labels = {
       general: '일반',
       question: '질문',
@@ -105,10 +106,22 @@ const PostDetail = ({ postId, user, onBack, onEdit, onDelete }) => {
   if (error) {
     return (
       <div className="text-center py-12">
-        <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h3 className="text-xl font-medium text-gray-900 mb-2">오류가 발생했습니다</h3>
+        <svg
+          className="w-16 h-16 text-red-400 mx-auto mb-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+          </svg>
+        <h3 className="text-xl font-medium text-gray-900 mb-2">
+          오류가 발생했습니다
+        </h3>
         <p className="text-gray-500 mb-4">{error}</p>
         <button
           onClick={onBack}
@@ -213,12 +226,10 @@ const PostDetail = ({ postId, user, onBack, onEdit, onDelete }) => {
         </div>
       </div>
 
-      {/* Comments Section (placeholder) */}
+      {/* Comments Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">댓글</h3>
-        <div className="text-center py-8 text-gray-500">
-          <p>댓글 기능은 준비 중입니다.</p>
-        </div>
+        <Comments postId={post.id} user={user} />
       </div>
     </div>
   );
