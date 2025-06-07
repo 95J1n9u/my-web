@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { authService } from '../config/firebase';
 import TermsOfService from './TermsOfService';
 import PrivacyPolicy from './PrivacyPolicy';
+import SecurityLogger from '../utils/security-logger';
 
 const LoginModal = ({ onClose, onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -98,25 +99,15 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
     setErrors({});
     setLoadingStep('인증 처리 중...');
 
-    try {
-      let result;
-
-      if (isLogin) {
-        // 로그인
-        setLoadingStep('로그인 중...');
-        result = await authService.signInWithEmail(
-          formData.email,
-          formData.password
-        );
-      } else {
-        // 회원가입
-        setLoadingStep('계정 생성 중...');
-        result = await authService.signUpWithEmail(
-          formData.email,
-          formData.password,
-          formData.displayName.trim()
-        );
-      }
+  try {
+    let result;
+    if (isLogin) {
+      result = await authService.signInWithEmail(formData.email, formData.password);
+      SecurityLogger.logAuthAttempt('email', result.success);
+    } else {
+      result = await authService.signUpWithEmail(formData.email, formData.password, formData.displayName.trim());
+      SecurityLogger.logAuthAttempt('signup', result.success);
+    }
 
       if (result.success) {
         setLoadingStep('완료!');
@@ -141,8 +132,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
             : '',
         });
       }
-    } catch (error) {
-      console.error('Authentication error:', error);
+  } catch (error) {
+    SecurityLogger.logAuthAttempt(isLogin ? 'email' : 'signup', false, error);
       setErrors({
         submit: '인증 중 예기치 못한 오류가 발생했습니다.',
         details: error.message,
@@ -159,7 +150,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
     setLoadingStep('Google 로그인 중...');
 
     try {
-      const result = await authService.signInWithGoogle();
+    const result = await authService.signInWithGoogle();
+    SecurityLogger.logAuthAttempt('google', result.success);
 
       if (result.success) {
         setLoadingStep('완료!');
@@ -185,7 +177,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         });
       }
     } catch (error) {
-      console.error('Google login error:', error);
+      SecurityLogger.logAuthAttempt('google', false, error);
       setErrors({
         submit: 'Google 로그인 중 오류가 발생했습니다.',
         details: error.message,

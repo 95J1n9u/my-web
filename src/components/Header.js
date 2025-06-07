@@ -357,14 +357,18 @@ const Header = ({
               <div className="flex items-center space-x-2">
                 {engineInfo.features?.multiFrameworkSupport && (
                   <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                    다중 지침서
+                    다중 지침서 이용가능
                   </span>
                 )}
-                {frameworks.some(f => f.id === 'NW' && f.isImplemented) && (
-                  <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                    NW 추가
-                  </span>
-                )}
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    user
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-200 text-red-800'
+                  }`}
+                >
+                  분석결과 저장·{user ? '활성' : '비활성'}
+                </span>
+                
                 {user && (
                   <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
                     인증됨

@@ -21,6 +21,7 @@ import CommunityPosts from './components/CommunityPosts';
 import NoticesList from './components/NoticesList';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import PostDetail from './components/PostDetail';
 
 
 
@@ -46,6 +47,8 @@ function App() {
   const [communityResetKey, setCommunityResetKey] = useState(0);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [showPostDetail, setShowPostDetail] = useState(false);
   
 
   
@@ -196,7 +199,41 @@ useEffect(() => {
       setCommunityResetKey(prev => prev + 1); // 키 값 변경으로 컴포넌트 강제 리셋
     }
   };
+const handleViewPost = (postId) => {
+  console.log('View post:', postId);
+  setSelectedPost(postId);
+  setShowPostDetail(true);
+};
 
+// 게시글 상세보기에서 뒤로가기
+const handleBackFromPost = () => {
+  setShowPostDetail(false);
+  setSelectedPost(null);
+};
+
+// JSX 부분에서 커뮤니티 섹션 수정
+{activeTab === 'community' && (
+  showPostDetail ? (
+    <PostDetail
+      postId={selectedPost}
+      onBack={handleBackFromPost}
+      user={user}
+    />
+  ) : showCreatePost ? (
+    <CreatePost
+      user={user}
+      onSuccess={handlePostCreateSuccess}
+      onCancel={() => setShowCreatePost(false)}
+    />
+  ) : (
+    <CommunityPosts
+      key={communityResetKey}
+      user={user}
+      onCreatePost={() => setShowCreatePost(true)}
+      onViewPost={handleViewPost} // 수정된 핸들러 전달
+    />
+  )
+)}
   // 분석 기록에서 상세보기 핸들러 추가
   const handleSelectAnalysis = (analysisData) => {
     console.log('Selected analysis for detail view:', analysisData);

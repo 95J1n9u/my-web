@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import analysisService from '../services/analysisService';
+import { validateFileContent } from '../utils/validation';
+import SecurityLogger from '../utils/security-logger';
 
 const FileUpload = ({
   onFileUpload,
@@ -121,26 +123,30 @@ const FileUpload = ({
     setIsDragOver(false);
   };
 
-  const handleDrop = e => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     setIsDragOver(false);
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleFileSelect(files[0]);
+      await handleFileSelect(files[0]); // async/await 추가
     }
   };
 
-  const handleFileSelect = async (file) => {
+
+const handleFileSelect = async (file) => {
+  try {
     // 파일 크기 체크 (50MB)
-    const maxSize = 50 * 1024 * 1024;
+    const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
+      SecurityLogger.logFileUpload(file.name, file.size, 'size_exceeded');
       alert('파일 크기가 너무 큽니다. 최대 50MB까지 업로드할 수 있습니다.');
       return;
     }
 
     // MIME 타입 검증 추가
-    const allowedMimeTypes = ['text/plain', 'application/octet-stream', 'text/xml'];
-    if (!allowedMimeTypes.includes(file.type) && file.type !== '') {
+    const allowedMimeTypes = ['text/plain', 'application/octet-stream', 'text/xml', ''];
+    if (file.type && !allowedMimeTypes.includes(file.type)) {
+      SecurityLogger.logFileUpload(file.name, file.size, 'invalid_mime_type');
       alert('지원되지 않는 파일 형식입니다.');
       return;
     }
@@ -148,67 +154,39 @@ const FileUpload = ({
     // 파일 확장자 체크
     const allowedExtensions = ['.txt', '.cfg', '.conf', '.xml', '.log'];
     const fileName = file.name.toLowerCase();
-    const isValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+    const isValidExtension = allowedExtensions.some(ext =>
+      fileName.endsWith(ext)
+    );
 
     if (!isValidExtension) {
-      alert('지원되지 않는 파일 형식입니다. .txt, .cfg, .conf, .xml, .log 파일을 업로드해주세요.');
+      SecurityLogger.logFileUpload(file.name, file.size, 'invalid_extension');
+      alert(
+        '지원되지 않는 파일 형식입니다. .txt, .cfg, .conf, .xml, .log 파일을 업로드해주세요.'
+      );
       return;
     }
 
-    // 파일 내용 검증 (매직 바이트 체크)
-    try {
-      const buffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(buffer);
-      
-      // 실행 파일 매직 바이트 체크 (PE, ELF 등)
-      if (uint8Array[0] === 0x4D && uint8Array[1] === 0x5A) { // PE
-        alert('실행 파일은 업로드할 수 없습니다.');
-        return;
-      }
-      if (uint8Array[0] === 0x7F && uint8Array[1] === 0x45 && 
-          uint8Array[2] === 0x4C && uint8Array[3] === 0x46) { // ELF
-        alert('실행 파일은 업로드할 수 없습니다.');
-        return;
-      }
-
-      // 텍스트 파일 내용 검증
-      const decoder = new TextDecoder('utf-8', { fatal: true });
-      try {
-        const content = decoder.decode(buffer.slice(0, Math.min(1024, buffer.byteLength)));
-        
-        // 의심스러운 스크립트 패턴 검사
-        const suspiciousPatterns = [
-          /<script/i,
-          /javascript:/i,
-          /eval\s*\(/i,
-          /document\.write/i,
-          /\.exe\b/i,
-          /\.bat\b/i,
-          /\.cmd\b/i
-        ];
-        
-        if (suspiciousPatterns.some(pattern => pattern.test(content))) {
-          alert('보안상 위험한 내용이 포함된 파일입니다.');
-          return;
-        }
-      } catch (e) {
-        // 텍스트 디코딩 실패시 바이너리 파일로 간주
-        alert('텍스트 파일만 업로드 가능합니다.');
-        return;
-      }
-
-    } catch (error) {
-      console.error('File validation error:', error);
-      alert('파일 검증 중 오류가 발생했습니다.');
-      return;
-    }
-
+    // 파일 내용 검증 추가
+    const fileContent = await file.text();
+    
+    // validation.js의 validateFileContent 함수 사용
+    validateFileContent(fileContent);
+    
+    // 모든 검증 통과시 로그 및 파일 설정
+    SecurityLogger.logFileUpload(file.name, file.size, 'success');
     setSelectedFile(file);
-  };
+    
+  } catch (error) {
+    // 검증 실패시 로그 및 알림
+    SecurityLogger.logFileUpload(file.name, file.size, `validation_failed: ${error.message}`);
+    alert(`파일 검증 실패: ${error.message}`);
+    console.error('File validation error:', error);
+  }
+};
 
-  const handleFileInputChange = e => {
+  const handleFileInputChange = async (e) => {
     if (e.target.files.length > 0) {
-      handleFileSelect(e.target.files[0]);
+      await handleFileSelect(e.target.files[0]); // async/await 추가
     }
   };
 
