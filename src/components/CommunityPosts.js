@@ -1,11 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { authService } from '../config/firebase';
+import PostDetail from './PostDetail';
+import EditPost from './EditPost';
 
-const CommunityPosts = ({ user, onCreatePost, onViewPost }) => {
+const CommunityPosts = ({ user, onCreatePost, activeTab}) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [currentView, setCurrentView] = useState('list');
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
+  const lastActiveTabRef = useRef(activeTab);
 
   const categories = [
     { value: 'all', label: '전체' },
@@ -16,6 +22,18 @@ const CommunityPosts = ({ user, onCreatePost, onViewPost }) => {
     { value: 'bug-report', label: '버그 신고' },
     { value: 'feature-request', label: '기능 요청' },
   ];
+  
+ // activeTab이 변경될 때만 감지
+  useEffect(() => {
+    if (activeTab === 'community' && lastActiveTabRef.current !== 'community') {
+      // 다른 탭에서 커뮤니티로 전환될 때만 목록으로 돌아가기
+      setCurrentView('list');
+      setSelectedPostId(null);
+      setEditingPost(null);
+    }
+    lastActiveTabRef.current = activeTab;
+  }, [activeTab]);
+
 
   useEffect(() => {
     loadPosts();
@@ -24,7 +42,7 @@ const CommunityPosts = ({ user, onCreatePost, onViewPost }) => {
   const loadPosts = async () => {
     try {
       setLoading(true);
-      const result = await authService.getPosts(20, selectedCategory);
+      const result = await authService.getPosts(50, selectedCategory); // 더 많은 게시글 로드
       
       if (result.success) {
         setPosts(result.posts);
@@ -39,16 +57,38 @@ const CommunityPosts = ({ user, onCreatePost, onViewPost }) => {
     }
   };
 
+  const handleViewPost = (postId) => {
+    setSelectedPostId(postId);
+    setCurrentView('detail');
+  };
+
+  const handleEditPost = (post) => {
+    setEditingPost(post);
+    setCurrentView('edit');
+  };
+
+  const handleBackToList = () => {
+    setCurrentView('list');
+    setSelectedPostId(null);
+    setEditingPost(null);
+    loadPosts();
+  };
+
+  const handlePostUpdated = () => {
+    handleBackToList();
+  };
+
+  const handlePostDeleted = () => {
+    handleBackToList();
+  };
+
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
+    if (!timestamp) return '-';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+      month: '2-digit',
+      day: '2-digit',
+    }).replace(/\./g, '/');
   };
 
   const getCategoryColor = (category) => {
@@ -68,6 +108,37 @@ const CommunityPosts = ({ user, onCreatePost, onViewPost }) => {
     return categoryObj ? categoryObj.label : category;
   };
 
+  // 게시글 번호 계산 (최신글이 가장 큰 번호)
+  const getPostNumber = (index) => {
+    return posts.length - index;
+  };
+
+  // 게시글 상세보기 화면
+  if (currentView === 'detail') {
+    return (
+      <PostDetail
+        postId={selectedPostId}
+        user={user}
+        onBack={handleBackToList}
+        onEdit={handleEditPost}
+        onDelete={handlePostDeleted}
+      />
+    );
+  }
+
+  // 게시글 수정 화면
+  if (currentView === 'edit') {
+    return (
+      <EditPost
+        post={editingPost}
+        user={user}
+        onSuccess={handlePostUpdated}
+        onCancel={handleBackToList}
+      />
+    );
+  }
+
+  // 게시글 목록 화면
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -132,8 +203,8 @@ const CommunityPosts = ({ user, onCreatePost, onViewPost }) => {
         </div>
       )}
 
-      {/* Posts List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      {/* Posts Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {posts.length === 0 ? (
           <div className="text-center py-12">
             <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,64 +224,93 @@ const CommunityPosts = ({ user, onCreatePost, onViewPost }) => {
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {posts.map(post => (
-              <div
-                key={post.id}
-                className="p-6 hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
-                onClick={() => onViewPost && onViewPost(post.id)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getCategoryColor(post.category)}`}>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 community-table">
+              {/* Table Header */}
+                <thead className="bg-gray-50">
+                <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                    번호
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    카테고리
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    제목
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                    작성자
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    작성일
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                    조회
+                    </th>
+                </tr>
+                </thead>
+                        
+              {/* Table Body */}
+                <tbody className="bg-white divide-y divide-gray-200">
+                {posts.map((post, index) => (
+                    <tr 
+                    key={post.id} 
+                    className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                    onClick={() => handleViewPost(post.id)}
+                    >
+                    {/* 번호 */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                        {getPostNumber(index)}
+                    </td>
+                    
+                    {/* 카테고리 */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`category-badge inline-flex px-2 py-1 text-xs font-medium rounded-full ${getCategoryColor(post.category)}`}>
                         {getCategoryLabel(post.category)}
-                      </span>
-                      {post.tags && post.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {post.tags.slice(0, 3).map((tag, index) => (
-                            <span key={index} className="inline-flex px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded">
-                              #{tag}
-                            </span>
-                          ))}
-                          {post.tags.length > 3 && (
-                            <span className="text-xs text-gray-500">+{post.tags.length - 3}</span>
-                          )}
+                        </span>
+                    </td>
+                    
+                    {/* 제목 */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm font-medium text-gray-900 hover:text-blue-600 post-title truncate max-w-md">
+                        {post.title}
+                    </span>
+                    </td>
+                    
+                    {/* 작성자 */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                        {post.authorName || '익명'}
                         </div>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2 hover:text-blue-600">
-                      {post.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {post.content.length > 100 ? `${post.content.substring(0, 100)}...` : post.content}
-                    </p>
-                    <div className="flex items-center text-sm text-gray-500 space-x-4">
-                      <span>{post.authorName || '익명'}</span>
-                      <span>•</span>
-                      <span>{formatDate(post.createdAt)}</span>
-                      <span>•</span>
-                      <span>조회 {post.views || 0}</span>
-                      {post.likes > 0 && (
-                        <>
-                          <span>•</span>
-                          <span>좋아요 {post.likes}</span>
-                        </>
-                      )}
-                      {post.comments > 0 && (
-                        <>
-                          <span>•</span>
-                          <span>댓글 {post.comments}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+                    </td>
+                    
+                    {/* 작성일 */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(post.createdAt)}
+                    </td>
+                    
+                    {/* 조회수 */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        {post.views || 0}
+                    </td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
           </div>
         )}
       </div>
+
+      {/* Post Count Info */}
+      {posts.length > 0 && (
+        <div className="flex justify-between items-center text-sm text-gray-500">
+          <span>총 {posts.length}개의 게시글</span>
+          <span>
+            {selectedCategory !== 'all' && `${getCategoryLabel(selectedCategory)} 카테고리`}
+            
+          </span>
+        </div>
+      )}
 
       {/* Login Prompt for Non-users */}
       {!user && (

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
+import EditNotice from './EditNotice'; // 새로 추가
 
 const NoticesList = ({ user, onCreateNotice, onViewNotice }) => {
   const { isAdmin } = useAuth(user);
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentView, setCurrentView] = useState('list'); // 'list', 'edit' 상태 추가
+  const [editingNotice, setEditingNotice] = useState(null); // 수정할 공지사항 상태 추가
 
   useEffect(() => {
     loadNotices();
@@ -30,6 +33,54 @@ const NoticesList = ({ user, onCreateNotice, onViewNotice }) => {
     }
   };
 
+  const handleEditNotice = (notice) => {
+    setEditingNotice(notice);
+    setCurrentView('edit');
+  };
+
+  const handleBackToList = () => {
+    setCurrentView('list');
+    setEditingNotice(null);
+    loadNotices(); // 목록 새로고침
+  };
+
+  const handleNoticeUpdated = () => {
+    handleBackToList();
+  };
+
+  const handleDeleteNotice = async (noticeId) => {
+    if (!window.confirm('정말로 이 공지사항을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const result = await authService.deleteNotice(noticeId, user.uid);
+      
+      if (result.success) {
+        alert('공지사항이 삭제되었습니다.');
+        loadNotices(); // 목록 새로고침
+      } else {
+        alert('삭제 실패: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Failed to delete notice:', error);
+      alert('공지사항 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 수정 화면 렌더링
+  if (currentView === 'edit') {
+    return (
+      <EditNotice
+        notice={editingNotice}
+        user={user}
+        onSuccess={handleNoticeUpdated}
+        onCancel={handleBackToList}
+      />
+    );
+  }
+
+  // 나머지 함수들과 JSX는 이전과 동일하지만, 수정 버튼 클릭 핸들러만 변경
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -142,13 +193,15 @@ const NoticesList = ({ user, onCreateNotice, onViewNotice }) => {
             {notices.map(notice => (
               <div
                 key={notice.id}
-                className={`p-6 hover:bg-gray-50 transition-colors duration-200 cursor-pointer ${
+                className={`p-6 hover:bg-gray-50 transition-colors duration-200 ${
                   notice.isPinned ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''
                 }`}
-                onClick={() => onViewNotice && onViewNotice(notice.id)}
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={() => onViewNotice && onViewNotice(notice.id)}
+                  >
                     <div className="flex items-center space-x-2 mb-2">
                       {notice.isPinned && (
                         <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
@@ -172,7 +225,7 @@ const NoticesList = ({ user, onCreateNotice, onViewNotice }) => {
                       {notice.content.length > 150 ? `${notice.content.substring(0, 150)}...` : notice.content}
                     </p>
                     <div className="flex items-center text-sm text-gray-500 space-x-4">
-                      <span>{notice.authorName || '관리자'}</span>
+                      <span className="font-medium text-red-600">관리자</span>
                       <span>•</span>
                       <span>{formatDate(notice.createdAt)}</span>
                       <span>•</span>
@@ -187,14 +240,38 @@ const NoticesList = ({ user, onCreateNotice, onViewNotice }) => {
                       )}
                     </div>
                   </div>
-                  {notice.priority === 'urgent' && (
-                    <div className="ml-4">
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        긴급
-                      </span>
+                  
+                  {/* 관리자 액션 버튼 */}
+                  {isAdmin() && (
+                    <div className="ml-4 flex flex-col space-y-2">
+                      {notice.priority === 'urgent' && (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full mb-2">
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                          긴급
+                        </span>
+                      )}
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditNotice(notice); // 수정 함수 호출
+                          }}
+                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteNotice(notice.id);
+                          }}
+                          className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                        >
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

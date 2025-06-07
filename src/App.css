@@ -256,3 +256,29 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+
+/* 카테고리 뱃지 스타일 개선 */
+.category-badge {
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 테이블 hover 효과 개선 */
+.community-table tbody tr:hover {
+  background-color: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 제목 말줄임표 효과 */
+.post-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+}

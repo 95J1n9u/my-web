@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../hooks/useAuth'; // 추가
+import { useAuth } from '../hooks/useAuth';
+
 
 const Sidebar = ({
   activeTab,
@@ -8,6 +9,8 @@ const Sidebar = ({
   engineInfo,
   user,
   analysisRecordCount = 0,
+  onShowTerms,
+  onShowPrivacy,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { isAdmin } = useAuth(user);
@@ -136,6 +139,25 @@ const Sidebar = ({
       </svg>
     ),
   },
+    {
+    id: 'legal',
+    name: '법적 고지',
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    ),
+  },
     // 로그인한 사용자에게만 보이는 메뉴
     ...(user
       ? [
@@ -159,25 +181,6 @@ const Sidebar = ({
             ),
             badge: analysisRecordCount > 0 ? analysisRecordCount : null,
           },
-        {
-          id: 'my-posts',
-          name: '내 게시글',
-          icon: (
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
-          ),
-        },
       ]
     : []),
 
@@ -315,7 +318,7 @@ const Sidebar = ({
         ))}
       </nav>
 
-      {/* 서비스 상태 */}
+{/* 서비스 상태 */}
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center space-x-2 mb-3">
           <div className={`w-2 h-2 rounded-full ${getStatusColor()}`}></div>
@@ -324,7 +327,7 @@ const Sidebar = ({
 
         {/* 엔진 정보 */}
         {engineInfo && (
-          <div className="text-xs text-gray-500 space-y-1">
+          <div className="text-xs text-gray-500 space-y-1 mb-3">
             <div>Engine: {engineInfo.engineVersion}</div>
             <div>
               지원: {engineInfo.implementedFrameworks?.length || 0}/
@@ -335,6 +338,29 @@ const Sidebar = ({
             )}
           </div>
         )}
+
+        {/* 법적 고지 링크 */}
+        <div className="border-t border-gray-100 pt-3">
+          <div className="text-xs text-gray-400 space-y-1">
+            <div className="flex space-x-3">
+              <button
+                onClick={onShowTerms}
+                className="text-gray-400 hover:text-gray-600 underline transition-colors duration-200"
+              >
+                이용약관
+              </button>
+              <button
+                onClick={onShowPrivacy}
+                className="text-gray-400 hover:text-gray-600 underline transition-colors duration-200"
+              >
+                개인정보
+              </button>
+            </div>
+            <div className="text-gray-300">
+              © 2024 NetSecure. All rights reserved.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

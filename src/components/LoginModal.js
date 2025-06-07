@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../config/firebase';
+import TermsOfService from './TermsOfService';
+import PrivacyPolicy from './PrivacyPolicy';
 
 const LoginModal = ({ onClose, onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,6 +17,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   // 고유한 ID 생성을 위한 prefix
   const modalId = `login-modal-${Date.now()}`;
@@ -583,17 +587,33 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
           <p className="text-xs text-gray-500 text-center">
             {isLogin ? '로그인' : '회원가입'}하시면{' '}
-            <a href="#" className="text-blue-600 hover:text-blue-700">
+            <button 
+              onClick={() => setShowTerms(true)}
+              className="text-blue-600 hover:text-blue-700 underline"
+            >
               서비스 이용약관
-            </a>{' '}
+            </button>{' '}
             및{' '}
-            <a href="#" className="text-blue-600 hover:text-blue-700">
+            <button 
+              onClick={() => setShowPrivacy(true)}
+              className="text-blue-600 hover:text-blue-700 underline"
+            >
               개인정보처리방침
-            </a>
+            </button>
             에 동의하신 것으로 간주됩니다.
           </p>
         </div>
       </div>
+
+      {/* Terms of Service Modal */}
+      {showTerms && (
+        <TermsOfService onClose={() => setShowTerms(false)} />
+      )}
+
+      {/* Privacy Policy Modal */}
+      {showPrivacy && (
+        <PrivacyPolicy onClose={() => setShowPrivacy(false)} />
+      )}
     </div>
   );
 };

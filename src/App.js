@@ -19,7 +19,11 @@ import CreatePost from './components/CreatePost';
 import CreateNotice from './components/CreateNotice';
 import CommunityPosts from './components/CommunityPosts';
 import NoticesList from './components/NoticesList';
-import MyPosts from './components/MyPosts';
+import TermsOfService from './components/TermsOfService';
+import PrivacyPolicy from './components/PrivacyPolicy';
+
+
+
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -38,6 +42,10 @@ function App() {
   const [signupPromptDismissed, setSignupPromptDismissed] = useState(false);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showCreateNotice, setShowCreateNotice] = useState(false);
+  const [communityResetKey, setCommunityResetKey] = useState(0);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  
 
   
   // 게시글 작성 성공 처리
@@ -182,9 +190,13 @@ useEffect(() => {
   const handleTabChange = tabId => {
     setActiveTab(tabId);
     setIsMobileSidebarOpen(false);
+    
+    // 커뮤니티 탭을 클릭할 때마다 리셋
+    if (tabId === 'community') {
+      setCommunityResetKey(prev => prev + 1); // 키 값 변경으로 컴포넌트 강제 리셋
+    }
   };
-
-  // Firebase 로그인 성공 처리
+    // Firebase 로그인 성공 처리
   const handleLoginSuccess = async userData => {
     console.log('로그인 성공:', userData);
     setUser(userData);
@@ -706,6 +718,8 @@ const handleSignupSuccess = (userData) => {
           }}
           user={user}
           analysisRecordCount={analysisRecordCount}
+          onShowTerms={() => setShowTerms(true)}
+          onShowPrivacy={() => setShowPrivacy(true)}
         />
       </div>
 
@@ -753,6 +767,7 @@ const handleSignupSuccess = (userData) => {
                 />
               ) : (
                 <CommunityPosts
+                  key={communityResetKey} // 이 줄 추가
                   user={user}
                   onCreatePost={() => setShowCreatePost(true)}
                   onViewPost={(postId) => {
@@ -779,16 +794,6 @@ const handleSignupSuccess = (userData) => {
                   }}
                 />
               )
-            )}
-            {activeTab === 'my-posts' && user && (
-              <MyPosts
-                user={user}
-                onCreatePost={() => setShowCreatePost(true)}
-                onViewPost={(postId) => {
-                  console.log('View my post:', postId);
-                  // TODO: 게시글 상세 보기 구현
-                }}
-              />
             )}
             {activeTab === 'upload' && (
               <FileUpload
@@ -908,6 +913,15 @@ const handleSignupSuccess = (userData) => {
 />
       {/* Firebase 연결 테스트 (개발 환경에서만) */}
       {/*process.env.NODE_ENV === 'development' && <FirebaseTest />*/}
+       {/* Terms of Service Modal */}
+      {showTerms && (
+        <TermsOfService onClose={() => setShowTerms(false)} />
+      )}
+
+      {/* Privacy Policy Modal */}
+      {showPrivacy && (
+        <PrivacyPolicy onClose={() => setShowPrivacy(false)} />
+      )}
     </div>
     
   );

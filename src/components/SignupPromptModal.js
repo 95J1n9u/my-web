@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import LoginModal from './LoginModal';
+import TermsOfService from './TermsOfService';
+import PrivacyPolicy from './PrivacyPolicy';
+
 
 const SignupPromptModal = ({ isOpen, onClose, onLoginSuccess, analysisResults }) => {
   const [showLoginModal, setShowLoginModal] = useState(false);
