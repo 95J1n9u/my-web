@@ -289,68 +289,65 @@ export const authService = {
 
   // 이메일/비밀번호 회원가입
   signUpWithEmail: async (email, password, displayName) => {
-    try {
-      checkFirebaseServices();
-      debugLog('Starting email signup', { email, displayName });
+  try {
+    checkFirebaseServices();
+    debugLog('Starting email signup', { email, displayName });
 
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const user = result.user;
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    const user = result.user;
 
-      debugLog('User created successfully', { uid: user.uid });
+    debugLog('User created successfully', { uid: user.uid });
 
-      // 사용자 프로필 업데이트
-      await updateProfile(user, {
-        displayName: displayName,
-      });
+    // 사용자 프로필 업데이트
+    await updateProfile(user, {
+      displayName: displayName,
+    });
 
-      debugLog('Profile updated');
+    debugLog('Profile updated');
 
-      // Firestore에 사용자 정보 저장
-      const userDocData = {
+    // Firestore에 사용자 정보 저장
+    const userDocData = {
+      uid: user.uid,
+      email: user.email,
+      displayName: displayName,
+      role: 'user', // 기본 역할
+      createdAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+      analysisCount: 0,
+      preferences: {
+        defaultFramework: 'KISA',
+        notifications: true,
+        theme: 'light',
+      },
+      provider: 'email',
+    };
+
+    debugLog('Saving user to Firestore', userDocData);
+
+    await setDoc(doc(db, 'users', user.uid), userDocData);
+
+    debugLog('User saved to Firestore successfully');
+
+    return {
+      success: true,
+      user: {
         uid: user.uid,
         email: user.email,
         displayName: displayName,
         role: 'user',
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-        analysisCount: 0,
-        preferences: {
-          defaultFramework: 'KISA',
-          notifications: true,
-          theme: 'light',
-        },
-      };
+      },
+    };
+  } catch (error) {
+    console.error('Sign up error:', error);
+    debugLog('Signup error details', error);
 
-      debugLog('Saving user to Firestore', userDocData);
-
-      await setDoc(doc(db, 'users', user.uid), userDocData);
-
-      debugLog('User saved to Firestore successfully');
-
-      return {
-        success: true,
-        user: {
-          uid: user.uid,
-          email: user.email,
-          displayName: displayName,
-          role: 'user',
-        },
-      };
-    } catch (error) {
-      console.error('Sign up error:', error);
-      debugLog('Signup error details', error);
-
-      return {
-        success: false,
-        error: getErrorMessage(error.code),
-        originalError: error,
-      };
-    }
-  },
+    return {
+      success: false,
+      error: getErrorMessage(error.code),
+      originalError: error,
+    };
+  }
+},
 
   // 이메일/비밀번호 로그인
   signInWithEmail: async (email, password) => {
@@ -930,98 +927,97 @@ getPosts: async (limitCount = 20, category = null) => {
   }
 },
   // Google 로그인
-  signInWithGoogle: async () => {
-    try {
-      checkFirebaseServices();
-      debugLog('Starting Google signin');
+signInWithGoogle: async () => {
+  try {
+    checkFirebaseServices();
+    debugLog('Starting Google signin');
 
-      // 팝업 차단 확인
-      const popup = window.open('', '', 'width=1,height=1');
-      if (!popup || popup.closed || typeof popup.closed == 'undefined') {
-        throw new Error('popup-blocked');
-      }
-      popup.close();
+    // 팝업 차단 확인
+    const popup = window.open('', '', 'width=1,height=1');
+    if (!popup || popup.closed || typeof popup.closed == 'undefined') {
+      throw new Error('popup-blocked');
+    }
+    popup.close();
 
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
 
-      debugLog('Google signin successful', { uid: user.uid });
+    debugLog('Google signin successful', { uid: user.uid });
 
-      // Firestore에서 기존 사용자 확인
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
+    // Firestore에서 기존 사용자 확인
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
 
-      let userData = {};
-      if (!userDoc.exists()) {
-        debugLog('New Google user, creating Firestore document');
-        // 새 사용자인 경우 Firestore에 정보 저장
-        userData = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          role: 'user',
-          createdAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp(),
-          analysisCount: 0,
-          preferences: {
-            defaultFramework: 'KISA',
-            notifications: true,
-            theme: 'light',
-          },
-          provider: 'google',
-        };
-
-        await setDoc(userDocRef, userData);
-      } else {
-        debugLog('Existing Google user, updating last login');
-        userData = userDoc.data();
-        // 기존 사용자의 마지막 로그인 시간 업데이트
-        await updateDoc(userDocRef, {
-          lastLoginAt: serverTimestamp(),
-          photoURL: user.photoURL, // 프로필 사진 업데이트
-        });
-      }
-
-      return {
-        success: true,
-        user: {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          role: userData.role || 'user',
-          analysisCount: userData.analysisCount || 0,
-          preferences: userData.preferences || {},
+    let userData = {};
+    if (!userDoc.exists()) {
+      debugLog('New Google user, creating Firestore document');
+      // 새 사용자인 경우 Firestore에 정보 저장
+      userData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        role: 'user', // 기본 역할
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        analysisCount: 0,
+        preferences: {
+          defaultFramework: 'KISA',
+          notifications: true,
+          theme: 'light',
         },
+        provider: 'google',
       };
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      debugLog('Google signin error details', error);
 
-      // 특별한 Google 로그인 에러 처리
-      if (error.code === 'auth/popup-closed-by-user') {
-        return {
-          success: false,
-          error: '로그인 창이 닫혔습니다. 다시 시도해주세요.',
-        };
-      }
+      await setDoc(userDocRef, userData);
+    } else {
+      debugLog('Existing Google user, updating last login');
+      userData = userDoc.data();
+      // 기존 사용자의 마지막 로그인 시간 업데이트
+      await updateDoc(userDocRef, {
+        lastLoginAt: serverTimestamp(),
+        photoURL: user.photoURL, // 프로필 사진 업데이트
+      });
+    }
 
-      if (error.message === 'popup-blocked') {
-        return {
-          success: false,
-          error:
-            '팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.',
-        };
-      }
+    return {
+      success: true,
+      user: {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        role: userData.role || 'user',
+        analysisCount: userData.analysisCount || 0,
+        preferences: userData.preferences || {},
+      },
+    };
+  } catch (error) {
+    console.error('Google sign in error:', error);
+    debugLog('Google signin error details', error);
 
+    // 특별한 Google 로그인 에러 처리
+    if (error.code === 'auth/popup-closed-by-user') {
       return {
         success: false,
-        error: getErrorMessage(error.code),
-        originalError: error,
+        error: '로그인 창이 닫혔습니다. 다시 시도해주세요.',
       };
     }
-  },
+
+    if (error.message === 'popup-blocked') {
+      return {
+        success: false,
+        error: '팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.',
+      };
+    }
+
+    return {
+      success: false,
+      error: getErrorMessage(error.code),
+      originalError: error,
+    };
+  }
+},
 
   // 로그아웃
   signOut: async () => {
