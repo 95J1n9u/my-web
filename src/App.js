@@ -149,7 +149,6 @@ useEffect(() => {
             uid: userData.uid,
             email: userData.email,
             displayName: userData.displayName,
-            role: userData.role, // role 정보 추가
             lastLogin: userData.lastLoginAt,
             analysisCount: userData.analysisCount,
           })

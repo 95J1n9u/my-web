@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../config/firebase';
+import { validateInput, sanitizeText } from '../utils/sanitizer';
 
 const CreatePost = ({ user, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -20,13 +21,19 @@ const CreatePost = ({ user, onSuccess, onCancel }) => {
     { value: 'feature-request', label: '기능 요청' },
   ];
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+const handleInputChange = (e) => {
+  const { name, value } = e.target;
+  
+  // 입력 검증 추가
+  if (name === 'title' && !validateInput(value, 'noScript')) {
+    return; // 스크립트가 포함된 제목은 차단
+  }
+  
+  setFormData(prev => ({
+    ...prev,
+    [name]: sanitizeText(value) // 입력값 sanitize
+  }));
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
