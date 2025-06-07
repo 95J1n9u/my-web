@@ -20,6 +20,19 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
   const [resetMessage, setResetMessage] = useState('');
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+
+  // 비밀번호 강도 계산 함수
+const getPasswordStrength = (password) => {
+  let strength = 0;
+  if (password.length >= 9) strength++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+  if (/\d/.test(password)) strength++;
+  if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
+  return strength;
+};
 
   // 고유한 ID 생성을 위한 prefix
   const modalId = `login-modal-${Date.now()}`;
@@ -87,7 +100,59 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+// 이메일 인증 재발송
+const handleResendVerification = async () => {
+  setResendLoading(true);
+  setErrors({});
 
+  try {
+    const result = await authService.resendEmailVerification();
+    
+    if (result.success) {
+      setErrors({ verification: '인증 이메일이 재발송되었습니다. 이메일을 확인해주세요.' });
+    } else {
+      setErrors({ verification: result.error });
+    }
+  } catch (error) {
+    setErrors({ verification: '이메일 재발송 중 오류가 발생했습니다.' });
+  } finally {
+    setResendLoading(false);
+  }
+};
+
+// 이메일 인증 상태 확인
+const handleCheckVerification = async () => {
+  setLoadingStep('인증 상태 확인 중...');
+  setErrors({});
+
+  try {
+    const result = await authService.refreshEmailVerification();
+    
+    if (result.success && result.emailVerified) {
+      setLoadingStep('인증 완료!');
+      
+      // 로그인 처리
+      const loginResult = await authService.signInWithEmail(formData.email, formData.password);
+      
+      if (loginResult.success) {
+        if (typeof onLoginSuccess === 'function') {
+          onLoginSuccess(loginResult.user);
+        }
+        if (typeof onClose === 'function') {
+          onClose();
+        }
+      } else {
+        setErrors({ verification: loginResult.error });
+      }
+    } else {
+      setErrors({ verification: '아직 이메일 인증이 완료되지 않았습니다.' });
+    }
+  } catch (error) {
+    setErrors({ verification: '인증 상태 확인 중 오류가 발생했습니다.' });
+  } finally {
+    setLoadingStep('');
+  }
+};
   const handleSubmit = async e => {
     e.preventDefault();
 
@@ -113,32 +178,35 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         setLoadingStep('완료!');
         console.log('인증 성공:', result.user);
 
-        // 콜백 함수가 존재하는지 확인 후 호출
-        if (typeof onLoginSuccess === 'function') {
-          onLoginSuccess(result.user);
+        // 이메일 인증이 필요한 경우
+        if (result.requiresEmailVerification) {
+          setVerificationEmail(formData.email);
+          setShowEmailVerification(true);
+          setLoadingStep('');
         } else {
-          console.error('onLoginSuccess is not a function:', onLoginSuccess);
-        }
+          // 콜백 함수가 존재하는지 확인 후 호출
+          if (typeof onLoginSuccess === 'function') {
+            onLoginSuccess(result.user);
+          } else {
+            console.error('onLoginSuccess is not a function:', onLoginSuccess);
+          }
 
-        if (typeof onClose === 'function') {
-          onClose();
+          if (typeof onClose === 'function') {
+            onClose();
+          }
         }
       } else {
-        console.error('인증 실패:', result);
-        setErrors({
-          submit: result.error,
-          details: result.originalError
-            ? `상세: ${result.originalError.message}`
-            : '',
-        });
-      }
-  } catch (error) {
-    SecurityLogger.logAuthAttempt(isLogin ? 'email' : 'signup', false, error);
-      setErrors({
-        submit: '인증 중 예기치 못한 오류가 발생했습니다.',
-        details: error.message,
-      });
-    } finally {
+          console.error('인증 실패:', result);
+          setErrors({
+            submit: result.error,
+          });
+        }
+        } catch (error) {
+          SecurityLogger.logAuthAttempt(isLogin ? 'email' : 'signup', false, error);
+          setErrors({
+            submit: '인증 중 예기치 못한 오류가 발생했습니다.',
+          });
+        } finally {
       setIsLoading(false);
       setLoadingStep('');
     }
@@ -167,22 +235,18 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         if (typeof onClose === 'function') {
           onClose();
         }
-      } else {
-        console.error('Google 로그인 실패:', result);
-        setErrors({
-          submit: result.error,
-          details: result.originalError
-            ? `상세: ${result.originalError.message}`
-            : '',
-        });
-      }
-    } catch (error) {
-      SecurityLogger.logAuthAttempt('google', false, error);
-      setErrors({
-        submit: 'Google 로그인 중 오류가 발생했습니다.',
-        details: error.message,
-      });
-    } finally {
+        } else {
+          console.error('Google 로그인 실패:', result);
+          setErrors({
+            submit: result.error,
+          });
+        }
+        } catch (error) {
+          SecurityLogger.logAuthAttempt('google', false, error);
+          setErrors({
+            submit: 'Google 로그인 중 오류가 발생했습니다.',
+          });
+        } finally {
       setIsLoading(false);
       setLoadingStep('');
     }
@@ -214,10 +278,10 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
       } else {
         setErrors({ reset: result.error });
       }
-    } catch (error) {
-      console.error('Password reset error:', error);
-      setErrors({ reset: '비밀번호 재설정 중 오류가 발생했습니다.' });
-    } finally {
+      } catch (error) {
+        console.error('Password reset error:', error);
+        setErrors({ reset: '비밀번호 재설정 중 오류가 발생했습니다.' });
+      } finally {
       setIsLoading(false);
       setLoadingStep('');
     }
@@ -471,7 +535,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.password ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    placeholder="비밀번호를 입력하세요 (6자 이상)"
+                    placeholder="비밀번호를 입력하세요"
                     disabled={isLoading}
                   />
                   {errors.password && (
@@ -480,7 +544,36 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                     </p>
                   )}
                 </div>
-
+                {/* 비밀번호 강도 표시기 (회원가입 모드에서만) */}
+                {!isLogin && formData.password && (
+                  <div className="mt-2">
+                    <div className="text-xs text-gray-600 mb-1">비밀번호 강도:</div>
+                    <div className="flex space-x-1">
+                      {Array.from({ length: 4 }).map((_, index) => {
+                        const strength = getPasswordStrength(formData.password);
+                        return (
+                          <div
+                            key={index}
+                            className={`h-1 flex-1 rounded ${
+                              index < strength
+                                ? strength === 1
+                                  ? 'bg-red-400'
+                                  : strength === 2
+                                  ? 'bg-yellow-400'
+                                  : strength === 3
+                                  ? 'bg-blue-400'
+                                  : 'bg-green-400'
+                                : 'bg-gray-200'
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      9자 이상, 영문 소문자, 숫자, 특수문자 포함필요
+                    </div>
+                  </div>
+                )}
                 {!isLogin && (
                   <div>
                     <label
@@ -517,12 +610,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                     <p className="text-sm text-red-600 font-medium">
                       {errors.submit}
                     </p>
-                    {errors.details &&
-                      process.env.NODE_ENV === 'development' && (
-                        <p className="text-xs text-red-500 mt-1">
-                          {errors.details}
-                        </p>
-                      )}
+                    {/* 상세 메시지 표시 제거 */}
                   </div>
                 )}
 
@@ -574,7 +662,92 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
             </>
           )}
         </div>
+{/* 이메일 인증 대기 화면 */}
+{showEmailVerification && (
+  <div className="space-y-4">
+    <div className="text-center">
+      <svg className="w-16 h-16 text-blue-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+      <h3 className="text-lg font-medium text-gray-900 mb-2">이메일 인증이 필요합니다</h3>
+      <p className="text-sm text-gray-600 mb-4">
+        <strong>{verificationEmail}</strong>로 인증 이메일을 발송했습니다.
+        <br />이메일을 확인하고 인증 링크를 클릭해주세요.
+      </p>
+    </div>
 
+    {/* 에러/성공 메시지 */}
+    {errors.verification && (
+      <div className={`p-3 rounded-lg ${
+        errors.verification.includes('재발송') || errors.verification.includes('확인')
+          ? 'bg-green-50 border border-green-200'
+          : 'bg-red-50 border border-red-200'
+      }`}>
+        <p className={`text-sm ${
+          errors.verification.includes('재발송') || errors.verification.includes('확인')
+            ? 'text-green-600'
+            : 'text-red-600'
+        }`}>
+          {errors.verification}
+        </p>
+      </div>
+    )}
+
+    <div className="space-y-3">
+      <button
+        onClick={handleCheckVerification}
+        disabled={isLoading}
+        className={`w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 ${
+          isLoading ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+      >
+        {isLoading ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            {loadingStep}
+          </>
+        ) : (
+          '이메일 인증 완료 확인'
+        )}
+      </button>
+
+      <button
+        onClick={handleResendVerification}
+        disabled={resendLoading}
+        className={`w-full flex items-center justify-center px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-colors duration-200 ${
+          resendLoading ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+      >
+        {resendLoading ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+            재발송 중...
+          </>
+        ) : (
+          '인증 이메일 재발송'
+        )}
+      </button>
+
+      <button
+        onClick={() => {
+          setShowEmailVerification(false);
+          setVerificationEmail('');
+          setErrors({});
+          resetForm();
+        }}
+        className="w-full text-sm text-gray-600 hover:text-gray-800 transition-colors duration-200"
+      >
+        다른 이메일로 다시 가입하기
+      </button>
+    </div>
+
+    <div className="text-xs text-gray-500 text-center space-y-1">
+      <p>• 이메일이 오지 않았나요? 스팸함을 확인해보세요.</p>
+      <p>• 인증 링크는 24시간 동안 유효합니다.</p>
+      <p>• 이메일 인증 완료 후 "인증 완료 확인" 버튼을 클릭해주세요.</p>
+    </div>
+  </div>
+)}
         {/* Footer */}
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
           <p className="text-xs text-gray-500 text-center">

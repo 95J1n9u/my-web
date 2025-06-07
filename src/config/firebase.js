@@ -10,8 +10,10 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
+  sendEmailVerification,
   connectAuthEmulator,
 } from 'firebase/auth';
+
 import {
   getFirestore,
   doc,
@@ -99,6 +101,79 @@ const checkFirebaseServices = () => {
 
 // 인증 관련 서비스 함수들
 export const authService = {
+  // 이메일 인증 재발송
+resendEmailVerification: async () => {
+  try {
+    checkFirebaseServices();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      return {
+        success: false,
+        error: '로그인이 필요합니다.',
+      };
+    }
+
+    if (user.emailVerified) {
+      return {
+        success: false,
+        error: '이미 이메일 인증이 완료되었습니다.',
+      };
+    }
+
+    debugLog('Resending email verification');
+    await sendEmailVerification(user, {
+      url: window.location.origin + '/dashboard',
+      handleCodeInApp: false,
+    });
+
+    debugLog('Email verification resent successfully');
+
+    return {
+      success: true,
+      message: '인증 이메일이 재발송되었습니다.',
+    };
+  } catch (error) {
+    console.error('Email verification resend error:', error);
+    debugLog('Email verification resend error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code),
+    };
+  }
+},
+
+// 이메일 인증 상태 새로고침
+refreshEmailVerification: async () => {
+  try {
+    checkFirebaseServices();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      return {
+        success: false,
+        error: '로그인이 필요합니다.',
+      };
+    }
+
+    debugLog('Refreshing email verification status');
+    await user.reload(); // Firebase에서 최신 상태 가져오기
+
+    debugLog('Email verification status refreshed', { emailVerified: user.emailVerified });
+
+    return {
+      success: true,
+      emailVerified: user.emailVerified,
+    };
+  } catch (error) {
+    console.error('Email verification refresh error:', error);
+    debugLog('Email verification refresh error', error);
+    return {
+      success: false,
+      error: getErrorMessage(error.code),
+    };
+  }
+},
     // 사용자 권한 변경 (관리자만 가능)
   updateUserRole: async (adminUid, targetUid, newRole) => {
     try {
@@ -288,8 +363,8 @@ export const authService = {
     }
   },
 
-  // 이메일/비밀번호 회원가입
-  signUpWithEmail: async (email, password, displayName) => {
+// 이메일/비밀번호 회원가입
+signUpWithEmail: async (email, password, displayName) => {
   try {
     checkFirebaseServices();
     debugLog('Starting email signup', { email, displayName });
@@ -299,6 +374,13 @@ export const authService = {
 
     debugLog('User created successfully', { uid: user.uid });
 
+    // 이메일 인증 발송
+    debugLog('Sending email verification');
+    await sendEmailVerification(user, {
+      url: window.location.origin + '/dashboard', // 인증 완료 후 리다이렉트 URL
+      handleCodeInApp: false,
+    });
+
     // 사용자 프로필 업데이트
     await updateProfile(user, {
       displayName: displayName,
@@ -306,12 +388,13 @@ export const authService = {
 
     debugLog('Profile updated');
 
-    // Firestore에 사용자 정보 저장
+    // Firestore에 사용자 정보 저장 (이메일 인증 상태 포함)
     const userDocData = {
       uid: user.uid,
       email: user.email,
       displayName: displayName,
       role: 'user', // 기본 역할
+      emailVerified: false, // 이메일 인증 상태
       createdAt: serverTimestamp(),
       lastLoginAt: serverTimestamp(),
       analysisCount: 0,
@@ -329,13 +412,16 @@ export const authService = {
 
     debugLog('User saved to Firestore successfully');
 
+    // 이메일 인증이 필요함을 알리는 특별한 응답
     return {
       success: true,
+      requiresEmailVerification: true,
       user: {
         uid: user.uid,
         email: user.email,
         displayName: displayName,
         role: 'user',
+        emailVerified: false,
       },
     };
   } catch (error) {
@@ -349,7 +435,6 @@ export const authService = {
     };
   }
 },
-
   // 이메일/비밀번호 로그인
   signInWithEmail: async (email, password) => {
     try {
@@ -396,7 +481,14 @@ export const authService = {
 
         await setDoc(userDocRef, userData);
       }
-
+      // 이메일 인증 확인
+      if (!user.emailVerified) {
+        return {
+          success: false,
+          error: '이메일 인증이 완료되지 않았습니다. 이메일을 확인하고 인증을 완료해주세요.',
+          requiresEmailVerification: true,
+        };
+      }
       return {
         success: true,
         user: {
@@ -1442,7 +1534,8 @@ const getErrorMessage = errorCode => {
     'auth/user-not-found': '존재하지 않는 계정입니다.',
     'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
     'auth/email-already-in-use': '이미 사용 중인 이메일입니다.',
-    'auth/weak-password': '비밀번호가 너무 약합니다. 6자 이상 입력해주세요.',
+    'auth/weak-password': '비밀번호가 너무 약합니다. 9자 이상의 영문, 숫자, 특수문자를 조합해주세요.',
+    'auth/password-does-not-meet-requirements': '비밀번호가 보안 요구사항을 충족하지 않습니다.\n9자 이상의 영문, 숫자, 특수문자를 조합해주세요.',
     'auth/invalid-email': '유효하지 않은 이메일 주소입니다.',
     'auth/invalid-credential': '잘못된 인증 정보입니다.',
     'auth/too-many-requests':
