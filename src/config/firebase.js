@@ -1583,7 +1583,229 @@ export const authService = {
       };
     }
   },
+// AI 조치 방안 사용량 확인
+  checkAIUsageLimit: async (uid) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Checking AI usage limit', { uid });
 
+      const userRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        return {
+          success: false,
+          error: '사용자 정보를 찾을 수 없습니다.',
+        };
+      }
+
+      const userData = userDoc.data();
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD 형식
+
+      // AI 사용량 정보 초기화 또는 가져오기
+      const aiUsage = userData.aiUsage || {
+        lastUsedDate: null,
+        usageCount: 0,
+        dailyLimit: 5,
+      };
+
+      // 날짜가 바뀌었으면 사용량 리셋
+      if (aiUsage.lastUsedDate !== today) {
+        aiUsage.usageCount = 0;
+        aiUsage.lastUsedDate = today;
+      }
+
+      // 관리자는 제한 없음
+      const isAdmin = userData.role === 'admin';
+
+      debugLog('AI usage check result', {
+        usageCount: aiUsage.usageCount,
+        dailyLimit: aiUsage.dailyLimit,
+        isAdmin: isAdmin,
+        today: today,
+      });
+
+      return {
+        success: true,
+        usageCount: aiUsage.usageCount,
+        dailyLimit: aiUsage.dailyLimit,
+        remainingUsage: isAdmin ? 999 : Math.max(0, aiUsage.dailyLimit - aiUsage.usageCount),
+        canUse: isAdmin || aiUsage.usageCount < aiUsage.dailyLimit,
+        isAdmin: isAdmin,
+        resetDate: today,
+      };
+    } catch (error) {
+      console.error('Error checking AI usage limit:', error);
+      debugLog('AI usage check error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // AI 조치 방안 사용량 증가
+  incrementAIUsage: async (uid) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Incrementing AI usage', { uid });
+
+      const userRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        return {
+          success: false,
+          error: '사용자 정보를 찾을 수 없습니다.',
+        };
+      }
+
+      const userData = userDoc.data();
+      const today = new Date().toISOString().split('T')[0];
+
+      // 관리자는 사용량 증가하지 않음
+      if (userData.role === 'admin') {
+        debugLog('Admin user - no usage increment');
+        return {
+          success: true,
+          usageCount: 0,
+          remainingUsage: 999,
+          isAdmin: true,
+        };
+      }
+
+      // 현재 AI 사용량 정보
+      const aiUsage = userData.aiUsage || {
+        lastUsedDate: null,
+        usageCount: 0,
+        dailyLimit: 5,
+      };
+
+      // 날짜가 바뀌었으면 사용량 리셋
+      if (aiUsage.lastUsedDate !== today) {
+        aiUsage.usageCount = 0;
+        aiUsage.lastUsedDate = today;
+      }
+
+      // 사용량 한도 체크
+      if (aiUsage.usageCount >= aiUsage.dailyLimit) {
+        return {
+          success: false,
+          error: `하루 사용 한도(${aiUsage.dailyLimit}회)를 초과했습니다.`,
+          usageCount: aiUsage.usageCount,
+          remainingUsage: 0,
+        };
+      }
+
+      // 사용량 증가
+      aiUsage.usageCount += 1;
+      aiUsage.lastUsedDate = today;
+
+      // Firestore 업데이트
+      await updateDoc(userRef, {
+        aiUsage: aiUsage,
+        lastAIUsedAt: serverTimestamp(),
+      });
+
+      debugLog('AI usage incremented', {
+        newUsageCount: aiUsage.usageCount,
+        remainingUsage: aiUsage.dailyLimit - aiUsage.usageCount,
+      });
+
+      return {
+        success: true,
+        usageCount: aiUsage.usageCount,
+        dailyLimit: aiUsage.dailyLimit,
+        remainingUsage: aiUsage.dailyLimit - aiUsage.usageCount,
+        isAdmin: false,
+      };
+    } catch (error) {
+      console.error('Error incrementing AI usage:', error);
+      debugLog('AI usage increment error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
+
+  // AI 사용량 통계 조회 (관리자용)
+  getAIUsageStats: async (adminUid) => {
+    try {
+      checkFirebaseServices();
+      debugLog('Fetching AI usage stats', { adminUid });
+
+      // 관리자 권한 확인
+      const adminRef = doc(db, 'users', adminUid);
+      const adminDoc = await getDoc(adminRef);
+
+      if (!adminDoc.exists() || adminDoc.data().role !== 'admin') {
+        return {
+          success: false,
+          error: '관리자 권한이 필요합니다.',
+        };
+      }
+
+      // 모든 사용자의 AI 사용량 통계 수집
+      const usersRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersRef);
+
+      const stats = {
+        totalUsers: 0,
+        todayActiveUsers: 0,
+        totalUsageToday: 0,
+        avgUsagePerUser: 0,
+        usersByUsage: {
+          0: 0, // 미사용
+          1: 0, // 1회
+          2: 0, // 2회
+          3: 0, // 3회
+          4: 0, // 4회
+          5: 0, // 5회 (한도 달성)
+        },
+      };
+
+      const today = new Date().toISOString().split('T')[0];
+
+      usersSnapshot.forEach(doc => {
+        const userData = doc.data();
+        if (userData.role === 'admin') return; // 관리자 제외
+
+        stats.totalUsers++;
+
+        const aiUsage = userData.aiUsage || { usageCount: 0, lastUsedDate: null };
+        
+        if (aiUsage.lastUsedDate === today) {
+          stats.todayActiveUsers++;
+          stats.totalUsageToday += aiUsage.usageCount;
+          
+          const usageCount = Math.min(aiUsage.usageCount, 5);
+          stats.usersByUsage[usageCount]++;
+        } else {
+          stats.usersByUsage[0]++;
+        }
+      });
+
+      if (stats.todayActiveUsers > 0) {
+        stats.avgUsagePerUser = (stats.totalUsageToday / stats.todayActiveUsers).toFixed(2);
+      }
+
+      debugLog('AI usage stats calculated', stats);
+
+      return {
+        success: true,
+        stats: stats,
+        date: today,
+      };
+    } catch (error) {
+      console.error('Error fetching AI usage stats:', error);
+      debugLog('AI usage stats error', error);
+      return {
+        success: false,
+        error: getErrorMessage(error.code) || error.message,
+      };
+    }
+  },
   // Firebase 연결 테스트
   testConnection: async () => {
     try {

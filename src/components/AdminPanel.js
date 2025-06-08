@@ -73,7 +73,61 @@ const AdminPanel = ({ user }) => {
       setLoading(false);
     }
   };
+// AdminPanel.js에 추가할 AI 사용량 통계 컴포넌트
+const AIUsageStats = ({ user }) => {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(false);
 
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const result = await authService.getAIUsageStats(user.uid);
+      if (result.success) {
+        setStats(result.stats);
+      }
+    } catch (error) {
+      console.error('Failed to load AI usage stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadStats();
+  }, []);
+
+  if (loading) {
+    return <div className="animate-pulse">로딩 중...</div>;
+  }
+
+  if (!stats) return null;
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        AI 조치 방안 사용량 통계
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
+          <div className="text-sm text-gray-600">총 사용자</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-green-600">{stats.todayActiveUsers}</div>
+          <div className="text-sm text-gray-600">오늘 활성 사용자</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-purple-600">{stats.totalUsageToday}</div>
+          <div className="text-sm text-gray-600">오늘 총 사용량</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-orange-600">{stats.avgUsagePerUser}</div>
+          <div className="text-sm text-gray-600">평균 사용량</div>
+        </div>
+      </div>
+    </div>
+  );
+};
   const handleRoleChange = async (targetUid, newRole) => {
     try {
       console.log('Changing role for user:', targetUid, 'to:', newRole);
@@ -269,6 +323,17 @@ const AdminPanel = ({ user }) => {
           >
             상세 통계
           </button>
+          {/* AI 사용량 탭 추가 */}
+          <button
+            onClick={() => setActiveTab('ai-usage')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'ai-usage'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            AI 사용량
+          </button>
         </nav>
       </div>
 
@@ -386,6 +451,8 @@ const AdminPanel = ({ user }) => {
             </div>
           </div>
 
+
+
           {/* Provider Distribution */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">가입 방법별 분포</h3>
@@ -402,7 +469,39 @@ const AdminPanel = ({ user }) => {
           </div>
         </div>
       )}
-
+      {/* AI Usage Tab - 새로 추가 */}
+      {activeTab === 'ai-usage' && (
+        <div className="space-y-6">
+          
+          
+          {/* 추가 AI 사용량 상세 정보 */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              AI 사용량 관리 정책
+            </h3>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">현재 정책</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• 일반 사용자: 하루 5회 제한</li>
+                  <li>• 관리자: 무제한 사용</li>
+                  <li>• 매일 자정에 사용량 자동 리셋</li>
+                  <li>• 사용량은 성공적인 AI 응답에만 차감</li>
+                </ul>
+              </div>
+              
+              <div className="p-4 bg-yellow-50 rounded-lg">
+                <h4 className="font-medium text-yellow-900 mb-2">향후 계획</h4>
+                <ul className="text-sm text-yellow-800 space-y-1">
+                  <li>• 결제 시스템 도입으로 사용량 확장</li>
+                  <li>• 프리미엄 플랜 제공</li>
+                  <li>• 기업용 무제한 플랜</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Role Change Modal */}
       {showRoleModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -456,6 +555,7 @@ const AdminPanel = ({ user }) => {
           </div>
         </div>
       )}
+      
     </div>
   );
 };
