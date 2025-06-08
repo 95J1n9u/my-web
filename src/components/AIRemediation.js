@@ -72,7 +72,7 @@ const AIRemediation = ({ aiResults, isLoading, onClose, onRetry }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">AI 기반 보안 조치 방안</h2>
+            <h2 className="text-2xl font-bold text-gray-900">NetSecure AI</h2>
             <p className="text-sm text-gray-600 mt-1">
               {aiResults.analysis_summary?.device_type} • 
               {aiResults.analysis_summary?.security_framework} • 
@@ -397,8 +397,7 @@ const AIRemediation = ({ aiResults, isLoading, onClose, onRetry }) => {
         <div className="border-t border-gray-200 p-6 bg-gray-50">
           <div className="flex items-center justify-between text-sm text-gray-600">
             <div>
-              처리 시간: {aiResults.analysis_summary?.processing_time} • 
-              AI 엔진: Google Gemini 2.0 Flash
+              처리 시간: {aiResults.analysis_summary?.processing_time}
             </div>
             <div className="flex space-x-3">
               <button

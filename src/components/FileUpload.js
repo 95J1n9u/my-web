@@ -19,6 +19,14 @@ const FileUpload = ({
   const [loadingFrameworks, setLoadingFrameworks] = useState(true);
   const fileInputRef = useRef(null);
   const [showAllDeviceTypes, setShowAllDeviceTypes] = useState(false);
+  const [analysisOptions, setAnalysisOptions] = useState({
+  includePassedRules: false,
+  includeSkippedRules: false,
+  useConsolidation: true,
+  showDetailedInfo: true,
+  enableComplianceMode: false
+});
+
 
   // 컴포넌트 마운트 시 지침서 목록 로드
   useEffect(() => {
@@ -26,6 +34,12 @@ const FileUpload = ({
     loadDeviceTypes();
   }, []);
 
+  const handleAnalysisOptionChange = (optionName, value) => {
+  setAnalysisOptions(prev => ({
+    ...prev,
+    [optionName]: value
+  }));
+};
   const loadFrameworks = async () => {
     try {
       setLoadingFrameworks(true);
@@ -215,26 +229,26 @@ const handleFileSelect = async (file) => {
   };
 
   const handleAnalyzeClick = () => {
-    if (!selectedFile) {
-      alert('분석할 파일을 선택해주세요.');
-      return;
-    }
-    if (!selectedDeviceType) {
-      alert('장비 타입을 선택해주세요.');
-      return;
-    }
-    if (selectedFrameworks.length === 0) {
-      alert('최소 1개 이상의 보안 지침서를 선택해주세요.');
-      return;
-    }
+  if (!selectedFile) {
+    alert('분석할 파일을 선택해주세요.');
+    return;
+  }
+  if (!selectedDeviceType) {
+    alert('장비 타입을 선택해주세요.');
+    return;
+  }
+  if (selectedFrameworks.length === 0) {
+    alert('최소 1개 이상의 보안 지침서를 선택해주세요.');
+    return;
+  }
 
-    // 다중 지침서 분석 또는 단일 지침서 분석
-    if (selectedFrameworks.length > 1) {
-      onFileUpload(selectedFile, selectedDeviceType, null, selectedFrameworks);
-    } else {
-      onFileUpload(selectedFile, selectedDeviceType, selectedFrameworks[0]);
-    }
-  };
+  // 다중 지침서 분석 또는 단일 지침서 분석
+  if (selectedFrameworks.length > 1) {
+    onFileUpload(selectedFile, selectedDeviceType, null, selectedFrameworks, analysisOptions);
+  } else {
+    onFileUpload(selectedFile, selectedDeviceType, selectedFrameworks[0], null, analysisOptions);
+  }
+};
 
   const handleReset = () => {
     setSelectedFile(null);
@@ -746,6 +760,117 @@ const handleFileSelect = async (file) => {
               )}
             </div>
           </div>
+
+          {/* Analysis Options */}
+{selectedFile && selectedDeviceType && selectedFrameworks.length > 0 && (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      분석 옵션
+      <span className="text-sm font-normal text-gray-500 ml-2">
+        (선택사항)
+      </span>
+    </h3>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+          <input
+            type="checkbox"
+            checked={analysisOptions.includePassedRules}
+            onChange={(e) => handleAnalysisOptionChange('includePassedRules', e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            disabled={isAnalyzing}
+          />
+          <div className="flex-1">
+            <div className="text-sm font-medium text-gray-900">
+              통과된 보안 항목 포함
+            </div>
+            <div className="text-xs text-gray-500">
+              보안 요구사항을 충족하는 항목도 표시
+            </div>
+          </div>
+        </label>
+
+        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+          <input
+            type="checkbox"
+            checked={analysisOptions.includeSkippedRules}
+            onChange={(e) => handleAnalysisOptionChange('includeSkippedRules', e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            disabled={isAnalyzing}
+          />
+          <div className="flex-1">
+            <div className="text-sm font-medium text-gray-900">
+              건너뛴 항목 포함
+            </div>
+            <div className="text-xs text-gray-500">
+              적용되지 않은 보안 룰도 표시
+            </div>
+          </div>
+        </label>
+
+        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+          <input
+            type="checkbox"
+            checked={analysisOptions.useConsolidation}
+            onChange={(e) => handleAnalysisOptionChange('useConsolidation', e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            disabled={isAnalyzing}
+          />
+          <div className="flex-1">
+            <div className="text-sm font-medium text-gray-900">
+              결과 통합 표시 (권장)
+            </div>
+            <div className="text-xs text-gray-500">
+              중복 항목을 통합하여 명확하게 표시
+            </div>
+          </div>
+        </label>
+
+        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+          <input
+            type="checkbox"
+            checked={analysisOptions.enableComplianceMode}
+            onChange={(e) => handleAnalysisOptionChange('enableComplianceMode', e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            disabled={isAnalyzing}
+          />
+          <div className="flex-1">
+            <div className="text-sm font-medium text-gray-900">
+              컴플라이언스 모드
+            </div>
+            <div className="text-xs text-gray-500">
+              보안 준수율 및 상세 분석 제공
+            </div>
+          </div>
+        </label>
+      </div>
+
+      {/* Options Summary */}
+      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+        <div className="text-sm font-medium text-blue-900 mb-2">
+          선택된 옵션 요약
+        </div>
+        <div className="text-xs text-blue-700 space-y-1">
+          {analysisOptions.includePassedRules && (
+            <div>✓ 통과된 보안 항목이 포함됩니다</div>
+          )}
+          {analysisOptions.includeSkippedRules && (
+            <div>✓ 건너뛴 항목이 포함됩니다</div>
+          )}
+          {analysisOptions.useConsolidation && (
+            <div>✓ 결과가 통합되어 표시됩니다</div>
+          )}
+          {analysisOptions.enableComplianceMode && (
+            <div>✓ 컴플라이언스 대시보드가 포함됩니다</div>
+          )}
+          {!Object.values(analysisOptions).some(Boolean) && (
+            <div className="text-gray-500">기본 모드로 취약점만 표시됩니다</div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Action Buttons */}
           <div className="flex space-x-4">

@@ -196,61 +196,73 @@ class AnalysisService {
 
   // 설정 파일 분석
   async analyzeConfig(
-    deviceType,
-    configText,
-    framework = 'KISA',
-    options = {}
-  ) {
-    try {
-      const requestBody = {
-        deviceType,
-        framework,
-        configText,
-        options: {
-          checkAllRules: true,
-          returnRawMatches: false,
-          enableLogicalAnalysis: true,
-          includeRecommendations: true,
-          ...options,
-        },
-      };
+  deviceType,
+  configText,
+  framework = 'KISA',
+  options = {},
+  analysisOptions = {}
+) {
+  try {
+    const requestBody = {
+      deviceType,
+      framework,
+      configText,
+      options: {
+        checkAllRules: true,
+        returnRawMatches: false,
+        enableLogicalAnalysis: true,
+        includeRecommendations: true,
+        // 🔥 새로운 분석 옵션들 추가
+        includePassedRules: analysisOptions.includePassedRules || false,
+        includeSkippedRules: analysisOptions.includeSkippedRules || false,
+        useConsolidation: analysisOptions.useConsolidation !== false, // 기본값 true
+        showDetailedInfo: analysisOptions.showDetailedInfo !== false, // 기본값 true
+        enableComplianceMode: analysisOptions.enableComplianceMode || false,
+        ...options,
+      },
+    };
 
-      const response = await fetch(`${API_BASE_URL}/config-analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+    // 컴플라이언스 모드가 활성화된 경우 전용 엔드포인트 사용
+    const endpoint = analysisOptions.enableComplianceMode 
+      ? `${API_BASE_URL}/config-analyze/compliance`
+      : `${API_BASE_URL}/config-analyze`;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        if (response.status === 400) {
-          throw new Error(errorData?.error || '잘못된 요청 데이터입니다');
-        } else if (response.status === 413) {
-          throw new Error('설정 파일이 너무 큽니다 (최대 50MB)');
-        } else if (response.status === 429) {
-          throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요');
-        } else if (response.status === 501) {
-          throw new Error(
-            errorData?.error ||
-              `${framework} 지침서는 아직 구현되지 않았습니다.`
-          );
-        } else {
-          throw new Error(errorData?.error || `서버 오류: ${response.status}`);
-        }
-      }
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-      return await response.json();
-    } catch (error) {
-      if (error.message.includes('fetch')) {
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      if (response.status === 400) {
+        throw new Error(errorData?.error || '잘못된 요청 데이터입니다');
+      } else if (response.status === 413) {
+        throw new Error('설정 파일이 너무 큽니다 (최대 50MB)');
+      } else if (response.status === 429) {
+        throw new Error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요');
+      } else if (response.status === 501) {
         throw new Error(
-          '네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.'
+          errorData?.error ||
+            `${framework} 지침서는 아직 구현되지 않았습니다.`
         );
+      } else {
+        throw new Error(errorData?.error || `서버 오류: ${response.status}`);
       }
-      throw error;
     }
+
+    return await response.json();
+  } catch (error) {
+    if (error.message.includes('fetch')) {
+      throw new Error(
+        '네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.'
+      );
+    }
+    throw error;
   }
+}
 
   // 단일 라인 분석
   async analyzeLine(line, deviceType, framework = 'KISA', ruleIds = null) {
@@ -393,95 +405,107 @@ class AnalysisService {
 
   // 분석 결과를 UI용 형식으로 변환
   transformAnalysisResult(apiResult) {
-    if (!apiResult.success) {
-      throw new Error(apiResult.error || '분석에 실패했습니다');
-    }
-
-    // 심각도 매핑 (다중 지침서 지원)
-    const severityMapping = {
-      // KISA
-      상: 'High',
-      중: 'Medium',
-      하: 'Low',
-      // CIS & NW
-      Critical: 'Critical',
-      High: 'High',
-      Medium: 'Medium',
-      Low: 'Low',
-      // NIST
-      Moderate: 'Medium',
-    };
-
-    // 카테고리 매핑 (다중 지침서 지원)
-    const categoryMapping = {
-      // KISA
-      '계정 관리': 'Authentication',
-      '접근 관리': 'Access Control',
-      '기능 관리': 'Function Management',
-      '로그 관리': 'Log Management',
-      '패치 관리': 'Patch Management',
-      // CIS
-      'Inventory and Control': 'Asset Management',
-      'Configuration Management': 'Configuration',
-      'Access Control': 'Access Control',
-      'Secure Configuration': 'Configuration',
-      // NW
-      비밀번호: 'Authentication',
-      '네트워크 접근': 'Access Control',
-      '서비스 관리': 'Function Management',
-      // NIST
-      Identify: 'Identification',
-      Protect: 'Protection',
-      Detect: 'Detection',
-      Respond: 'Response',
-      Recover: 'Recovery',
-    };
-
-    const transformedVulnerabilities = apiResult.results.map(
-      (result, index) => ({
-        id: index + 1,
-        severity: severityMapping[result.severity] || result.severity,
-        severityKo: result.severity,
-        type: categoryMapping[result.category] || result.category,
-        typeKo: result.category,
-        description: result.description,
-        recommendation: result.recommendation,
-        line: result.line,
-        matchedText: result.matchedText,
-        ruleId: result.ruleId,
-        reference: result.reference,
-        framework: result.framework || apiResult.framework,
-        analysisType: result.analysisType || 'logical',
-      })
-    );
-
-    return {
-      summary: {
-        totalChecks:
-          apiResult.statistics?.totalRulesChecked ||
-          apiResult.analysisDetails?.rulesApplied ||
-          0,
-        vulnerabilities: apiResult.issuesFound || 0,
-        warnings: apiResult.statistics?.mediumSeverityIssues || 0,
-        passed: apiResult.statistics?.rulesPassed || 0,
-        highSeverity: apiResult.statistics?.highSeverityIssues || 0,
-        mediumSeverity: apiResult.statistics?.mediumSeverityIssues || 0,
-        lowSeverity: apiResult.statistics?.lowSeverityIssues || 0,
-      },
-      vulnerabilities: transformedVulnerabilities,
-      metadata: {
-        deviceType: apiResult.deviceType,
-        framework: apiResult.framework,
-        frameworkInfo: apiResult.frameworkInfo,
-        totalLines: apiResult.totalLines,
-        analysisTime: apiResult.analysisTime,
-        timestamp: apiResult.timestamp,
-        engineVersion: apiResult.engineVersion,
-        contextInfo: apiResult.contextInfo,
-        analysisDetails: apiResult.analysisDetails,
-      },
-    };
+  if (!apiResult.success) {
+    throw new Error(apiResult.error || '분석에 실패했습니다');
   }
+
+  // 심각도 매핑 (기존과 동일)
+  const severityMapping = {
+    상: 'High',
+    중: 'Medium',
+    하: 'Low',
+    Critical: 'Critical',
+    High: 'High',
+    Medium: 'Medium',
+    Low: 'Low',
+    Moderate: 'Medium',
+  };
+
+  // 카테고리 매핑 (기존과 동일)
+  const categoryMapping = {
+    '계정 관리': 'Authentication',
+    '접근 관리': 'Access Control',
+    '기능 관리': 'Function Management',
+    '로그 관리': 'Log Management',
+    '패치 관리': 'Patch Management',
+    'Inventory and Control': 'Asset Management',
+    'Configuration Management': 'Configuration',
+    'Access Control': 'Access Control',
+    'Secure Configuration': 'Configuration',
+    비밀번호: 'Authentication',
+    '네트워크 접근': 'Access Control',
+    '서비스 관리': 'Function Management',
+    Identify: 'Identification',
+    Protect: 'Protection',
+    Detect: 'Detection',
+    Respond: 'Response',
+    Recover: 'Recovery',
+  };
+
+  // 결과 변환 함수
+  const transformResults = (results, status) => {
+    if (!results || !Array.isArray(results)) return [];
+    
+    return results.map((result, index) => ({
+      id: `${status}_${index + 1}`,
+      severity: severityMapping[result.severity] || result.severity,
+      severityKo: result.severity,
+      type: categoryMapping[result.category] || result.category,
+      typeKo: result.category,
+      description: result.description,
+      recommendation: result.recommendation,
+      line: result.line,
+      matchedText: result.matchedText,
+      ruleId: result.ruleId,
+      reference: result.reference,
+      framework: result.framework || apiResult.framework,
+      analysisType: result.analysisType || 'logical',
+      status: status, // 🔥 새로 추가: 상태 정보
+    }));
+  };
+
+  // 🔥 새로운 결과 구조 지원
+  const transformedResult = {
+    summary: {
+      totalChecks: apiResult.statistics?.totalRulesChecked || 
+                   apiResult.analysisDetails?.rulesApplied || 
+                   apiResult.complianceSummary?.totalRules || 0,
+      vulnerabilities: apiResult.issuesFound || 
+                      apiResult.complianceSummary?.failedRules || 0,
+      warnings: apiResult.statistics?.mediumSeverityIssues || 0,
+      passed: apiResult.passedRulesCount || 
+              apiResult.statistics?.rulesPassed || 
+              apiResult.complianceSummary?.passedRules || 0,
+      skipped: apiResult.skippedRulesCount || 
+               apiResult.complianceSummary?.skippedRules || 0,
+      highSeverity: apiResult.statistics?.highSeverityIssues || 0,
+      mediumSeverity: apiResult.statistics?.mediumSeverityIssues || 0,
+      lowSeverity: apiResult.statistics?.lowSeverityIssues || 0,
+      // 🔥 컴플라이언스 정보 추가
+      complianceRate: apiResult.complianceSummary?.complianceRate || null,
+    },
+    vulnerabilities: transformResults(apiResult.results?.failed || apiResult.results || [], 'failed'),
+    // 🔥 새로운 결과 타입들 추가
+    passedRules: transformResults(apiResult.results?.passed || [], 'passed'),
+    skippedRules: transformResults(apiResult.results?.skipped || [], 'skipped'),
+    metadata: {
+      deviceType: apiResult.deviceType,
+      framework: apiResult.framework,
+      frameworkInfo: apiResult.frameworkInfo,
+      totalLines: apiResult.totalLines,
+      analysisTime: apiResult.analysisTime,
+      timestamp: apiResult.timestamp,
+      engineVersion: apiResult.engineVersion,
+      contextInfo: apiResult.contextInfo,
+      analysisDetails: apiResult.analysisDetails,
+      // 🔥 컴플라이언스 메타데이터 추가
+      complianceSummary: apiResult.complianceSummary,
+      analysisOptions: apiResult.analysisOptions,
+    },
+  };
+
+  return transformedResult;
+}
 
   // 지침서별 특성 정보 반환 (업데이트된 버전)
   getFrameworkInfo(frameworkId) {

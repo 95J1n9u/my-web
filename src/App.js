@@ -506,95 +506,104 @@ const forceRefreshUserData = async () => {
   };
 
   const handleFileUpload = async (
-    file,
-    deviceType,
-    framework,
-    comparisonFrameworks
-  ) => {
-    if (!file || !deviceType) {
-      setAnalysisError('파일과 장비 타입을 모두 선택해주세요.');
-      return;
+  file,
+  deviceType,
+  framework,
+  comparisonFrameworks,
+  analysisOptions = {} // 🔥 새로운 매개변수 추가
+) => {
+  if (!file || !deviceType) {
+    setAnalysisError('파일과 장비 타입을 모두 선택해주세요.');
+    return;
+  }
+
+  setUploadedFile(file);
+  setIsAnalyzing(true);
+  setAnalysisError(null);
+  setAnalysisResults(null);
+  setComparisonResults(null);
+  setSelectedHistoryAnalysis(null);
+
+  try {
+    // 파일을 텍스트로 변환
+    const configText = await analysisService.fileToText(file);
+    setOriginalConfigText(configText);
+
+    if (!configText.trim()) {
+      throw new Error('파일이 비어있거나 읽을 수 없습니다.');
     }
 
-    setUploadedFile(file);
-    setIsAnalyzing(true);
-    setAnalysisError(null);
-    setAnalysisResults(null);
-    setComparisonResults(null);
-    setSelectedHistoryAnalysis(null); // 추가
+    let finalResults = null;
+    let isComparison = false;
 
-    try {
-      // 파일을 텍스트로 변환
-      const configText = await analysisService.fileToText(file);
-      setOriginalConfigText(configText);
+    // 비교 분석 모드인 경우
+    if (comparisonFrameworks && comparisonFrameworks.length > 1) {
+      console.log(
+        'Starting comparison analysis with frameworks:',
+        comparisonFrameworks,
+        'Options:',
+        analysisOptions
+      );
 
-      if (!configText.trim()) {
-        throw new Error('파일이 비어있거나 읽을 수 없습니다.');
-      }
+      isComparison = true;
+      const comparisonResult = await analysisService.compareAnalysis(
+        deviceType,
+        configText,
+        comparisonFrameworks,
+        {}, // 기본 옵션
+        analysisOptions // 🔥 분석 옵션 전달
+      );
 
-      let finalResults = null;
-      let isComparison = false;
-
-      // 비교 분석 모드인 경우
-      if (comparisonFrameworks && comparisonFrameworks.length > 1) {
-        console.log(
-          'Starting comparison analysis with frameworks:',
-          comparisonFrameworks
-        );
-
-        isComparison = true;
-        const comparisonResult = await analysisService.compareAnalysis(
-          deviceType,
-          configText,
-          comparisonFrameworks
-        );
-
-        // 비교 결과를 UI 형식으로 변환
-        const transformedResults = {};
-        for (const [frameworkId, result] of Object.entries(
-          comparisonResult.frameworks
-        )) {
-          if (result.success) {
-            transformedResults[frameworkId] =
-              analysisService.transformAnalysisResult(result);
-          } else {
-            transformedResults[frameworkId] = { error: result.error };
-          }
+      // 비교 결과를 UI 형식으로 변환
+      const transformedResults = {};
+      for (const [frameworkId, result] of Object.entries(
+        comparisonResult.frameworks
+      )) {
+        if (result.success) {
+          transformedResults[frameworkId] =
+            analysisService.transformAnalysisResult(result);
+        } else {
+          transformedResults[frameworkId] = { error: result.error };
         }
-
-        finalResults = {
-          ...comparisonResult,
-          frameworks: transformedResults,
-        };
-        setComparisonResults(finalResults);
-      } else {
-        // 단일 지침서 분석
-        const selectedFrameworkId = framework || selectedFramework;
-        console.log(
-          'Starting single framework analysis with:',
-          selectedFrameworkId
-        );
-
-        const apiResult = await analysisService.analyzeConfig(
-          deviceType,
-          configText,
-          selectedFrameworkId
-        );
-        const transformedResult =
-          analysisService.transformAnalysisResult(apiResult);
-
-        finalResults = transformedResult;
-        setAnalysisResults(finalResults);
       }
 
-      setActiveTab('results'); // 결과 화면으로 이동
+      finalResults = {
+        ...comparisonResult,
+        frameworks: transformedResults,
+      };
+      setComparisonResults(finalResults);
+    } else {
+      // 단일 지침서 분석
+      const selectedFrameworkId = framework || selectedFramework;
+      console.log(
+        'Starting single framework analysis with:',
+        selectedFrameworkId,
+        'Options:',
+        analysisOptions
+      );
 
-      // 로그인하지 않은 사용자에게 회원가입 유도 팝업 표시
-      if (!user && !signupPromptDismissed) {
-        setTimeout(() => {
-          setShowSignupPrompt(true);
-        }, 1000);
-      }
+      const apiResult = await analysisService.analyzeConfig(
+        deviceType,
+        configText,
+        selectedFrameworkId,
+        {}, // 기본 옵션
+        analysisOptions // 🔥 분석 옵션 전달
+      );
+      const transformedResult =
+        analysisService.transformAnalysisResult(apiResult);
+
+      finalResults = transformedResult;
+      setAnalysisResults(finalResults);
+    }
+
+    setActiveTab('results'); // 결과 화면으로 이동
+
+    // 로그인하지 않은 사용자에게 회원가입 유도 팝업 표시
+    if (!user && !signupPromptDismissed) {
+      setTimeout(() => {
+        setShowSignupPrompt(true);
+      }, 1000);
+    }
 
       // 로그인된 사용자의 분석 결과를 Firestore에 저장
       if (user?.uid && finalResults) {
