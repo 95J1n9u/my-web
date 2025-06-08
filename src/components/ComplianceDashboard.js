@@ -66,87 +66,144 @@ const ComplianceDashboard = ({ complianceSummary, frameworkInfo }) => {
     );
   };
 
-  // 심각도별 막대 차트
-  const SeverityChart = ({ data }) => {
-    if (!data) return null;
-    
-    const maxValue = Math.max(...Object.values(data));
-    
+// 심각도별 막대 차트
+const SeverityChart = ({ data }) => {
+  if (!data) return null;
+  
+  // 🔥 데이터 유효성 검증 추가
+  console.log('SeverityChart data:', data, typeof data);
+  
+  // data가 객체가 아니거나 빈 객체인 경우 처리
+  if (typeof data !== 'object' || Array.isArray(data) || Object.keys(data).length === 0) {
     return (
-      <div className="space-y-3">
-        {Object.entries(data).map(([severity, count]) => {
-          const percentage = maxValue > 0 ? (count / maxValue) * 100 : 0;
-          const severityColors = {
-            'High': 'bg-red-500',
-            'Medium': 'bg-yellow-500', 
-            'Low': 'bg-blue-500',
-            'Critical': 'bg-red-600',
-            '상': 'bg-red-500',
-            '중': 'bg-yellow-500',
-            '하': 'bg-blue-500'
-          };
-          
-          return (
-            <div key={severity} className="flex items-center space-x-3">
-              <div className="w-16 text-sm text-gray-600 text-right">
-                {severity}
-              </div>
-              <div className="flex-1 bg-gray-200 rounded-full h-4 relative">
-                <div
-                  className={`h-4 rounded-full transition-all duration-1000 ${severityColors[severity] || 'bg-gray-400'}`}
-                  style={{ width: `${percentage}%` }}
-                />
-                <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
-                  {count}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="text-center py-4">
+        <p className="text-sm text-gray-500">심각도별 데이터가 없습니다.</p>
       </div>
     );
-  };
-
-  // 카테고리별 도넛 차트 (간단한 버전)
-  const CategoryChart = ({ data }) => {
-    if (!data) return null;
-    
-    const total = Object.values(data).reduce((sum, count) => sum + count, 0);
-    if (total === 0) return null;
-
-    const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 
-      'bg-red-500', 'bg-purple-500', 'bg-indigo-500'
-    ];
-
+  }
+  
+  // 🔥 모든 값이 숫자인지 확인
+  const validEntries = Object.entries(data).filter(([key, value]) => {
+    return typeof value === 'number' && !isNaN(value);
+  });
+  
+  if (validEntries.length === 0) {
     return (
-      <div className="space-y-2">
-        {Object.entries(data).map(([category, count], index) => {
-          const percentage = (count / total) * 100;
-          
-          return (
-            <div key={category} className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]}`} />
-                <span className="text-sm text-gray-700 truncate" title={category}>
-                  {category}
-                </span>
-              </div>
-              <div className="text-sm font-medium text-gray-900">
-                {count} ({percentage.toFixed(1)}%)
-              </div>
-            </div>
-          );
-        })}
+      <div className="text-center py-4">
+        <p className="text-sm text-gray-500">유효한 심각도 데이터가 없습니다.</p>
       </div>
     );
-  };
+  }
+  
+  const maxValue = Math.max(...validEntries.map(([, value]) => value));
+  
+  return (
+    <div className="space-y-3">
+      {validEntries.map(([severity, count]) => {
+        const percentage = maxValue > 0 ? (count / maxValue) * 100 : 0;
+        const severityColors = {
+          'High': 'bg-red-500',
+          'Medium': 'bg-yellow-500', 
+          'Low': 'bg-blue-500',
+          'Critical': 'bg-red-600',
+          '상': 'bg-red-500',
+          '중': 'bg-yellow-500',
+          '하': 'bg-blue-500'
+        };
+        
+        return (
+          <div key={severity} className="flex items-center space-x-3">
+            <div className="w-16 text-sm text-gray-600 text-right">
+              {severity}
+            </div>
+            <div className="flex-1 bg-gray-200 rounded-full h-4 relative">
+              <div
+                className={`h-4 rounded-full transition-all duration-1000 ${severityColors[severity] || 'bg-gray-400'}`}
+                style={{ width: `${percentage}%` }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                {/* 🔥 숫자만 렌더링 보장 */}
+                {typeof count === 'number' ? count : 0}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// 카테고리별 도넛 차트 (간단한 버전)
+const CategoryChart = ({ data }) => {
+  if (!data) return null;
+  
+  // 🔥 데이터 유효성 검증 추가
+  console.log('CategoryChart data:', data, typeof data);
+  
+  if (typeof data !== 'object' || Array.isArray(data) || Object.keys(data).length === 0) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-sm text-gray-500">카테고리별 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+  
+  // 🔥 유효한 엔트리만 필터링
+  const validEntries = Object.entries(data).filter(([key, value]) => {
+    return typeof value === 'number' && !isNaN(value);
+  });
+  
+  if (validEntries.length === 0) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-sm text-gray-500">유효한 카테고리 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+  
+  const total = validEntries.reduce((sum, [, count]) => sum + count, 0);
+  if (total === 0) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-sm text-gray-500">카테고리 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+
+  const colors = [
+    'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 
+    'bg-red-500', 'bg-purple-500', 'bg-indigo-500'
+  ];
+
+  return (
+    <div className="space-y-2">
+      {validEntries.map(([category, count], index) => {
+        const percentage = (count / total) * 100;
+        
+        return (
+          <div key={category} className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]}`} />
+              <span className="text-sm text-gray-700 truncate" title={category}>
+                {category}
+              </span>
+            </div>
+            <div className="text-sm font-medium text-gray-900">
+              {/* 🔥 안전한 렌더링 */}
+              {typeof count === 'number' ? count : 0} ({percentage.toFixed(1)}%)
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-gray-900">
-          컴플라이언스 대시보드
+          분석결과 대시보드
         </h3>
         {frameworkInfo && (
           <span

@@ -403,8 +403,8 @@ class AnalysisService {
     });
   }
 
-  // 분석 결과를 UI용 형식으로 변환
-  transformAnalysisResult(apiResult) {
+// 분석 결과를 UI용 형식으로 변환
+transformAnalysisResult(apiResult) {
   if (!apiResult.success) {
     throw new Error(apiResult.error || '분석에 실패했습니다');
   }
@@ -460,34 +460,74 @@ class AnalysisService {
       reference: result.reference,
       framework: result.framework || apiResult.framework,
       analysisType: result.analysisType || 'logical',
-      status: status, // 🔥 새로 추가: 상태 정보
+      status: status, // 상태 정보
     }));
   };
 
-  // 🔥 새로운 결과 구조 지원
+  // 🔥 새로운 결과 구조 처리 - 수정된 부분
+  let vulnerabilities = [];
+  let passedRules = [];
+  let skippedRules = [];
+
+  // API 응답 구조에 따른 분기 처리
+  if (apiResult.results) {
+    if (typeof apiResult.results === 'object' && !Array.isArray(apiResult.results)) {
+      // 새로운 구조: {failed: [], passed: [], skipped: []}
+      vulnerabilities = transformResults(apiResult.results.failed || [], 'failed');
+      passedRules = transformResults(apiResult.results.passed || [], 'passed');
+      skippedRules = transformResults(apiResult.results.skipped || [], 'skipped');
+    } else if (Array.isArray(apiResult.results)) {
+      // 기존 구조: 배열 형태
+      vulnerabilities = transformResults(apiResult.results, 'failed');
+    }
+  }
+
+  // 별도 필드에서 오는 경우도 처리
+  if (apiResult.passedRules && Array.isArray(apiResult.passedRules)) {
+    passedRules = transformResults(apiResult.passedRules, 'passed');
+  }
+  if (apiResult.skippedRules && Array.isArray(apiResult.skippedRules)) {
+    skippedRules = transformResults(apiResult.skippedRules, 'skipped');
+  }
+// 🔥 complianceSummary 안전하게 처리
+const safeComplianceSummary = apiResult.complianceSummary ? {
+  ...apiResult.complianceSummary,
+  severityBreakdown: apiResult.complianceSummary.severityBreakdown && 
+                     typeof apiResult.complianceSummary.severityBreakdown === 'object' &&
+                     !Array.isArray(apiResult.complianceSummary.severityBreakdown) ? 
+                     apiResult.complianceSummary.severityBreakdown : {},
+  categoryBreakdown: apiResult.complianceSummary.categoryBreakdown && 
+                     typeof apiResult.complianceSummary.categoryBreakdown === 'object' &&
+                     !Array.isArray(apiResult.complianceSummary.categoryBreakdown) ? 
+                     apiResult.complianceSummary.categoryBreakdown : {}
+} : null;
+  // 변환된 결과 반환
   const transformedResult = {
     summary: {
       totalChecks: apiResult.statistics?.totalRulesChecked || 
                    apiResult.analysisDetails?.rulesApplied || 
                    apiResult.complianceSummary?.totalRules || 0,
       vulnerabilities: apiResult.issuesFound || 
-                      apiResult.complianceSummary?.failedRules || 0,
+                      apiResult.complianceSummary?.failedRules || 
+                      vulnerabilities.length || 0,
       warnings: apiResult.statistics?.mediumSeverityIssues || 0,
       passed: apiResult.passedRulesCount || 
               apiResult.statistics?.rulesPassed || 
-              apiResult.complianceSummary?.passedRules || 0,
+              apiResult.complianceSummary?.passedRules || 
+              passedRules.length || 0,
       skipped: apiResult.skippedRulesCount || 
-               apiResult.complianceSummary?.skippedRules || 0,
+               apiResult.complianceSummary?.skippedRules || 
+               skippedRules.length || 0,
       highSeverity: apiResult.statistics?.highSeverityIssues || 0,
       mediumSeverity: apiResult.statistics?.mediumSeverityIssues || 0,
       lowSeverity: apiResult.statistics?.lowSeverityIssues || 0,
-      // 🔥 컴플라이언스 정보 추가
+      // 컴플라이언스 정보 추가
       complianceRate: apiResult.complianceSummary?.complianceRate || null,
     },
-    vulnerabilities: transformResults(apiResult.results?.failed || apiResult.results || [], 'failed'),
-    // 🔥 새로운 결과 타입들 추가
-    passedRules: transformResults(apiResult.results?.passed || [], 'passed'),
-    skippedRules: transformResults(apiResult.results?.skipped || [], 'skipped'),
+    vulnerabilities: vulnerabilities,
+    // 새로운 결과 타입들 추가
+    passedRules: passedRules,
+    skippedRules: skippedRules,
     metadata: {
       deviceType: apiResult.deviceType,
       framework: apiResult.framework,
@@ -498,9 +538,9 @@ class AnalysisService {
       engineVersion: apiResult.engineVersion,
       contextInfo: apiResult.contextInfo,
       analysisDetails: apiResult.analysisDetails,
-      // 🔥 컴플라이언스 메타데이터 추가
-      complianceSummary: apiResult.complianceSummary,
-      analysisOptions: apiResult.analysisOptions,
+      // 컴플라이언스 메타데이터 추가
+      complianceSummary: safeComplianceSummary,
+    analysisOptions: apiResult.analysisOptions,
     },
   };
 

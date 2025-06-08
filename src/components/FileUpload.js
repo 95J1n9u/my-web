@@ -3,6 +3,15 @@ import analysisService from '../services/analysisService';
 import { validateFileContent } from '../utils/validation';
 import SecurityLogger from '../utils/security-logger';
 
+// 🔥 기본 분석 옵션을 컴포넌트 외부 상수로 선언
+const DEFAULT_ANALYSIS_OPTIONS = {
+  includePassedRules: true,      // 통과항목 기본 포함
+  includeSkippedRules: true,     // 스킵항목 기본 포함
+  useConsolidation: true,        // 결과 통합
+  showDetailedInfo: true,        // 상세정보
+  enableComplianceMode: false    // 컴플라이언스 모드는 false로 유지
+};
+
 const FileUpload = ({
   onFileUpload,
   uploadedFile,
@@ -19,13 +28,6 @@ const FileUpload = ({
   const [loadingFrameworks, setLoadingFrameworks] = useState(true);
   const fileInputRef = useRef(null);
   const [showAllDeviceTypes, setShowAllDeviceTypes] = useState(false);
-  const [analysisOptions, setAnalysisOptions] = useState({
-  includePassedRules: false,
-  includeSkippedRules: false,
-  useConsolidation: true,
-  showDetailedInfo: true,
-  enableComplianceMode: false
-});
 
 
   // 컴포넌트 마운트 시 지침서 목록 로드
@@ -34,12 +36,6 @@ const FileUpload = ({
     loadDeviceTypes();
   }, []);
 
-  const handleAnalysisOptionChange = (optionName, value) => {
-  setAnalysisOptions(prev => ({
-    ...prev,
-    [optionName]: value
-  }));
-};
   const loadFrameworks = async () => {
     try {
       setLoadingFrameworks(true);
@@ -228,7 +224,7 @@ const handleFileSelect = async (file) => {
     }
   };
 
-  const handleAnalyzeClick = () => {
+const handleAnalyzeClick = () => {
   if (!selectedFile) {
     alert('분석할 파일을 선택해주세요.');
     return;
@@ -244,9 +240,9 @@ const handleFileSelect = async (file) => {
 
   // 다중 지침서 분석 또는 단일 지침서 분석
   if (selectedFrameworks.length > 1) {
-    onFileUpload(selectedFile, selectedDeviceType, null, selectedFrameworks, analysisOptions);
+    onFileUpload(selectedFile, selectedDeviceType, null, selectedFrameworks, DEFAULT_ANALYSIS_OPTIONS);
   } else {
-    onFileUpload(selectedFile, selectedDeviceType, selectedFrameworks[0], null, analysisOptions);
+    onFileUpload(selectedFile, selectedDeviceType, selectedFrameworks[0], null, DEFAULT_ANALYSIS_OPTIONS);
   }
 };
 
@@ -761,117 +757,6 @@ const handleFileSelect = async (file) => {
             </div>
           </div>
 
-          {/* Analysis Options */}
-{selectedFile && selectedDeviceType && selectedFrameworks.length > 0 && (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-      분석 옵션
-      <span className="text-sm font-normal text-gray-500 ml-2">
-        (선택사항)
-      </span>
-    </h3>
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
-          <input
-            type="checkbox"
-            checked={analysisOptions.includePassedRules}
-            onChange={(e) => handleAnalysisOptionChange('includePassedRules', e.target.checked)}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            disabled={isAnalyzing}
-          />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">
-              통과된 보안 항목 포함
-            </div>
-            <div className="text-xs text-gray-500">
-              보안 요구사항을 충족하는 항목도 표시
-            </div>
-          </div>
-        </label>
-
-        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
-          <input
-            type="checkbox"
-            checked={analysisOptions.includeSkippedRules}
-            onChange={(e) => handleAnalysisOptionChange('includeSkippedRules', e.target.checked)}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            disabled={isAnalyzing}
-          />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">
-              건너뛴 항목 포함
-            </div>
-            <div className="text-xs text-gray-500">
-              적용되지 않은 보안 룰도 표시
-            </div>
-          </div>
-        </label>
-
-        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
-          <input
-            type="checkbox"
-            checked={analysisOptions.useConsolidation}
-            onChange={(e) => handleAnalysisOptionChange('useConsolidation', e.target.checked)}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            disabled={isAnalyzing}
-          />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">
-              결과 통합 표시 (권장)
-            </div>
-            <div className="text-xs text-gray-500">
-              중복 항목을 통합하여 명확하게 표시
-            </div>
-          </div>
-        </label>
-
-        <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
-          <input
-            type="checkbox"
-            checked={analysisOptions.enableComplianceMode}
-            onChange={(e) => handleAnalysisOptionChange('enableComplianceMode', e.target.checked)}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            disabled={isAnalyzing}
-          />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">
-              컴플라이언스 모드
-            </div>
-            <div className="text-xs text-gray-500">
-              보안 준수율 및 상세 분석 제공
-            </div>
-          </div>
-        </label>
-      </div>
-
-      {/* Options Summary */}
-      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-        <div className="text-sm font-medium text-blue-900 mb-2">
-          선택된 옵션 요약
-        </div>
-        <div className="text-xs text-blue-700 space-y-1">
-          {analysisOptions.includePassedRules && (
-            <div>✓ 통과된 보안 항목이 포함됩니다</div>
-          )}
-          {analysisOptions.includeSkippedRules && (
-            <div>✓ 건너뛴 항목이 포함됩니다</div>
-          )}
-          {analysisOptions.useConsolidation && (
-            <div>✓ 결과가 통합되어 표시됩니다</div>
-          )}
-          {analysisOptions.enableComplianceMode && (
-            <div>✓ 컴플라이언스 대시보드가 포함됩니다</div>
-          )}
-          {!Object.values(analysisOptions).some(Boolean) && (
-            <div className="text-gray-500">기본 모드로 취약점만 표시됩니다</div>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
           {/* Action Buttons */}
           <div className="flex space-x-4">
             <button
@@ -894,7 +779,7 @@ const handleFileSelect = async (file) => {
               {isAnalyzing ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  분석 중...
+                  종합 분석 중...
                 </>
               ) : (
                 <>
@@ -912,8 +797,8 @@ const handleFileSelect = async (file) => {
                     />
                   </svg>
                   {selectedFrameworks.length > 1
-                    ? '다중 지침서 비교 분석 시작'
-                    : '보안 분석 시작'}
+                    ? '다중 지침서 종합 분석 시작'
+                    : '보안 종합 분석 시작'}
                 </>
               )}
             </button>
@@ -930,47 +815,47 @@ const handleFileSelect = async (file) => {
           </div>
 
           {/* Analysis Progress */}
-          {isAnalyzing && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                분석 진행 상황
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    설정 파일 업로드...
-                  </span>
-                  <span className="text-sm font-medium text-green-600">
-                    ✓ 완료
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    {selectedFrameworks.length > 1
-                      ? `${selectedFrameworks.length}개 지침서 분석...`
-                      : `${selectedFrameworks[0]} 지침서 적용...`}
-                  </span>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    보안 룰셋 적용...
-                  </span>
-                  <span className="text-sm text-gray-400">대기중</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">
-                    취약점 탐지 및 분석...
-                  </span>
-                  <span className="text-sm text-gray-400">대기중</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">보고서 생성...</span>
-                  <span className="text-sm text-gray-400">대기중</span>
+            {isAnalyzing && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  분석 진행 상황
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      설정 파일 업로드...
+                    </span>
+                    <span className="text-sm font-medium text-green-600">
+                      ✓ 완료
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      {selectedFrameworks.length > 1
+                        ? `${selectedFrameworks.length}개 지침서 분석...`
+                        : `${selectedFrameworks[0]} 지침서 적용...`}
+                    </span>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      보안 룰셋 적용 (통과/스킵 항목 포함)...
+                    </span>
+                    <span className="text-sm text-gray-400">대기중</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      취약점 탐지 및 종합 분석...
+                    </span>
+                    <span className="text-sm text-gray-400">대기중</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">상세 보고서 생성...</span>
+                    <span className="text-sm text-gray-400">대기중</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
 
         {/* Information Panel */}
@@ -1025,59 +910,67 @@ const handleFileSelect = async (file) => {
           )}
 
           {/* Framework Selection Summary */}
-          {selectedFrameworks.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                분석 요약
-              </h3>
-              <div className="space-y-3">
-                <div className="text-sm text-gray-600">
-                  분석 모드:{' '}
-                  {selectedFrameworks.length === 1
-                    ? '단일 지침서 분석'
-                    : '다중 지침서 비교 분석'}
-                </div>
-                <div className="text-sm text-gray-600">
-                  선택된 지침서: {selectedFrameworks.length}개
-                </div>
-                <div className="space-y-2">
-                  {selectedFrameworks.map(frameworkId => {
-                    const framework = frameworks.find(
-                      f => f.id === frameworkId
-                    );
-                    const info = getFrameworkInfo(frameworkId);
-                    return (
-                      <div
-                        key={frameworkId}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                      >
-                        <div className="flex items-center space-x-2">
-                          {info && (
-                            <span
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: info.color }}
-                            />
-                          )}
-                          <span className="text-sm font-medium">
-                            {frameworkId}
+            {selectedFrameworks.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  분석 요약
+                </h3>
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600">
+                    분석 모드:{' '}
+                    {selectedFrameworks.length === 1
+                      ? '단일 지침서 종합 분석'
+                      : '다중 지침서 비교 분석'}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    선택된 지침서: {selectedFrameworks.length}개
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    분석 범위: 취약점 + 통과항목 + 스킵항목 (전체)
+                  </div>
+                  <div className="space-y-2">
+                    {selectedFrameworks.map(frameworkId => {
+                      const framework = frameworks.find(
+                        f => f.id === frameworkId
+                      );
+                      const info = getFrameworkInfo(frameworkId);
+                      return (
+                        <div
+                          key={frameworkId}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                        >
+                          <div className="flex items-center space-x-2">
+                            {info && (
+                              <span
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: info.color }}
+                              />
+                            )}
+                            <span className="text-sm font-medium">
+                              {frameworkId}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {framework?.total_rules}룰
                           </span>
                         </div>
-                        <span className="text-xs text-gray-500">
-                          {framework?.total_rules}룰
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {selectedFrameworks.length > 1 && (
-                  <div className="text-xs text-gray-500 mt-3 p-2 bg-blue-50 rounded">
-                    💡 비교 분석은 각 지침서별로 개별 분석을 수행한 후 결과를
-                    종합하여 보여줍니다.
+                      );
+                    })}
                   </div>
-                )}
+                  {selectedFrameworks.length > 1 && (
+                    <div className="text-xs text-gray-500 mt-3 p-2 bg-blue-50 rounded">
+                      💡 비교 분석은 각 지침서별로 개별 분석을 수행한 후 결과를
+                      종합하여 보여줍니다. (취약점, 통과, 스킵 항목 모두 포함)
+                    </div>
+                  )}
+                  {selectedFrameworks.length === 1 && (
+                    <div className="text-xs text-gray-500 mt-3 p-2 bg-green-50 rounded">
+                      ✓ 종합 분석 모드: 모든 보안 검사 결과를 상세히 확인할 수 있습니다.
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Supported Formats */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -1153,105 +1046,128 @@ const handleFileSelect = async (file) => {
           </div>
 
           {/* Analysis Features */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              분석 기능
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-start space-x-3">
-                <svg
-                  className="w-5 h-5 text-green-500 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    장비별 최적화된 분석
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    각 장비 타입에 맞는 지침서만 선택 가능
-                  </p>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                분석 기능
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-start space-x-3">
+                  <svg
+                    className="w-5 h-5 text-green-500 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      종합 보안 분석
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      취약점, 통과항목, 스킵항목을 모두 포함한 완전 분석
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <svg
-                  className="w-5 h-5 text-green-500 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    다중 지침서 선택
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    여러 보안 표준을 동시에 적용하여 종합 분석
-                  </p>
+                <div className="flex items-start space-x-3">
+                  <svg
+                    className="w-5 h-5 text-green-500 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      장비별 최적화된 분석
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      각 장비 타입에 맞는 지침서만 선택 가능
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <svg
-                  className="w-5 h-5 text-green-500 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    지능형 분석 엔진
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    논리 기반 분석과 패턴 매칭 결합
-                  </p>
+                <div className="flex items-start space-x-3">
+                  <svg
+                    className="w-5 h-5 text-green-500 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      다중 지침서 선택
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      여러 보안 표준을 동시에 적용하여 종합 분석
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <svg
-                  className="w-5 h-5 text-green-500 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    확장된 장비 지원
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Cisco부터 HP, Dasan까지 10개 브랜드
-                  </p>
+                <div className="flex items-start space-x-3">
+                  <svg
+                    className="w-5 h-5 text-green-500 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      지능형 분석 엔진
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      논리 기반 분석과 패턴 매칭 결합으로 정확한 결과 제공
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <svg
+                    className="w-5 h-5 text-green-500 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      확장된 장비 지원
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Cisco부터 HP, Dasan까지 10개 브랜드
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
           {/* Security Notice */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
