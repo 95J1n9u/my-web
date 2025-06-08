@@ -868,34 +868,34 @@ const safeComplianceSummary = apiResult.complianceSummary ? {
       vulnerabilities = analysisResults.vulnerabilities.map((vuln, index) => {
         console.log(`Processing vulnerability ${index}:`, vuln);
         
-        // 🔥 ID를 정수로 변환
-        let vulnerabilityId;
-        if (vuln.id && !isNaN(parseInt(vuln.id))) {
-          vulnerabilityId = parseInt(vuln.id);
-        } else {
-          vulnerabilityId = index + 1; // 0-based index를 1-based로 변환
-        }
+        // ID를 정수로 변환 (AI API 요구사항)
+// 수정된 코드 (올바름)
+let vulnerabilityId;
+if (vuln.id) {
+  vulnerabilityId = String(vuln.id);  // ✅ 문자열로 변환
+} else {
+  vulnerabilityId = `vuln_${index + 1}`;  // ✅ 문자열 형태로 생성
+}
 
-        // 🔥 ruleId도 정수로 변환 (필요한 경우)
-        let ruleIdValue;
-        if (vuln.ruleId && !isNaN(parseInt(vuln.ruleId))) {
-          ruleIdValue = parseInt(vuln.ruleId);
-        } else {
-          // ruleId가 문자열인 경우 그대로 유지하거나, 필요시 hash 값으로 변환
-          ruleIdValue = vuln.ruleId || `rule_${index + 1}`;
-        }
-                
-        return {
-          id: vulnerabilityId, // 🔥 정수로 변환
-          severity: this.normalizeSeverity(vuln.severity || vuln.severityKo),
-          ruleId: ruleIdValue, // 🔥 문자열 또는 정수
-          description: vuln.description || '취약점 설명이 없습니다.',
-          type: vuln.type || vuln.typeKo || 'Security',
-          line: parseInt(vuln.line) || 0, // 🔥 정수로 확실히 변환
-          recommendation: vuln.recommendation || '권장사항이 없습니다.',
-          matchedText: vuln.matchedText || '',
-          framework: vuln.framework || analysisResults.metadata?.framework || 'Unknown'
-        };
+// ruleId는 문자열로 유지 (AI API에서 문자열 허용)
+let ruleIdValue;
+if (vuln.ruleId) {
+  ruleIdValue = String(vuln.ruleId);
+} else {
+  ruleIdValue = `rule_${index + 1}`;
+}
+
+return {
+  id: vulnerabilityId, // 🔥 정수로 변환 (AI API 요구사항)
+  severity: this.normalizeSeverity(vuln.severity || vuln.severityKo),
+  ruleId: ruleIdValue, // 문자열로 유지
+  description: vuln.description || '취약점 설명이 없습니다.',
+  type: vuln.type || vuln.typeKo || 'Security',
+  line: parseInt(vuln.line) || 0,
+  recommendation: vuln.recommendation || '권장사항이 없습니다.',
+  matchedText: vuln.matchedText || '',
+  framework: vuln.framework || analysisResults.metadata?.framework || 'Unknown'
+};
       });
     } else {
       console.warn('No vulnerabilities found or vulnerabilities is not an array');
@@ -910,24 +910,24 @@ const safeComplianceSummary = apiResult.complianceSummary ? {
       framework: analysisResults.metadata?.framework || 'Unknown',
       deviceType: analysisResults.metadata?.deviceType || 'Unknown',
       scanDate: new Date().toISOString().split('T')[0],
-      totalLines: parseInt(analysisResults.metadata?.totalLines) || 0, // 🔥 정수로 변환
+      totalLines: Math.max(0, parseInt(analysisResults.metadata?.totalLines) || 0), // 음수 방지
       engineVersion: analysisResults.metadata?.engineVersion || 'Unknown',
-      analysisTime: parseFloat(analysisResults.metadata?.analysisTime) || 0, // 🔥 숫자로 변환
-      totalChecks: parseInt(analysisResults.summary?.totalChecks) || 0, // 🔥 정수로 변환
+      analysisTime: Math.max(0, parseFloat(analysisResults.metadata?.analysisTime) || 0), // 음수 방지
+      totalChecks: Math.max(0, parseInt(analysisResults.summary?.totalChecks) || 0), // 음수 방지
       timestamp: analysisResults.metadata?.timestamp || new Date().toISOString()
     };
 
     console.log('Metadata:', metadata);
 
-    const vulnerabilityReport = {
+   const vulnerabilityReport = {
       vulnerabilities: vulnerabilities,
       metadata: metadata,
       summary: {
-        totalVulnerabilities: vulnerabilities.length,
-        totalChecks: parseInt(analysisResults.summary?.totalChecks) || 0, // 🔥 정수로 변환
-        passedChecks: parseInt(analysisResults.summary?.passed) || 0, // 🔥 정수로 변환
-        failedChecks: vulnerabilities.length,
-        skippedChecks: parseInt(analysisResults.summary?.skipped) || 0 // 🔥 정수로 변환
+        totalVulnerabilities: Math.max(0, vulnerabilities.length),
+        totalChecks: Math.max(0, parseInt(analysisResults.summary?.totalChecks) || 0),
+        passedChecks: Math.max(0, parseInt(analysisResults.summary?.passed) || 0),
+        failedChecks: Math.max(0, vulnerabilities.length),
+        skippedChecks: Math.max(0, parseInt(analysisResults.summary?.skipped) || 0)
       }
     };
 
@@ -937,11 +937,17 @@ const safeComplianceSummary = apiResult.complianceSummary ? {
     };
 
     console.log('Final AI format result:', {
-      config_length: result.original_config.length,
-      vulnerability_count: vulnerabilityReport.vulnerabilities.length,
-      metadata: vulnerabilityReport.metadata,
-      sample_vulnerability_ids: vulnerabilityReport.vulnerabilities.slice(0, 3).map(v => ({ id: v.id, type: typeof v.id }))
-    });
+  config_length: result.original_config.length,
+  vulnerability_count: vulnerabilityReport.vulnerabilities.length,
+  metadata: vulnerabilityReport.metadata,
+  sample_vulnerability_ids: vulnerabilityReport.vulnerabilities.slice(0, 3).map(v => ({ 
+    id: v.id, 
+    type: typeof v.id,  // 이제 'number'가 나와야 함
+    originalId: v.originalId, // 디버깅용
+    ruleId: v.ruleId,
+    ruleIdType: typeof v.ruleId 
+  }))
+});
 
     console.log('=== End AI Format Transform Debug ===');
 
