@@ -89,6 +89,13 @@ const getPasswordStrength = (password) => {
     if (!isLogin) {
       if (!formData.displayName || formData.displayName.trim().length < 2) {
         newErrors.displayName = '이름은 2자 이상 입력해주세요.';
+      } else {
+        const forbiddenWords = ['admin', '관리자', '운영자', 'administrator'];
+        const lowerDisplayName = formData.displayName.toLowerCase();
+
+        if (forbiddenWords.some(word => lowerDisplayName.includes(word))) {
+          newErrors.displayName = '사용할 수 없는 이름입니다.';
+        }
       }
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = '비밀번호 확인을 입력해주세요.';
