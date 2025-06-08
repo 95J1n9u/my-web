@@ -614,6 +614,97 @@ class AnalysisService {
       },
     };
   }
+  // AI 기반 취약점 조치 방안 분석
+  async getAIRemediation(configText, vulnerabilityReport, aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
+    try {
+      console.log('AI 조치 방안 요청 시작:', {
+        configLength: configText.length,
+        vulnerabilityCount: vulnerabilityReport.vulnerabilities?.length
+      });
+
+      const requestBody = {
+        original_config: configText,
+        vulnerability_report: vulnerabilityReport
+      };
+
+      const response = await fetch(`${aiApiBaseUrl}/analyze-vulnerabilities`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        if (response.status === 400) {
+          throw new Error(errorData?.detail || '잘못된 요청 데이터입니다');
+        } else if (response.status === 422) {
+          throw new Error('데이터 검증에 실패했습니다. 입력 형식을 확인해주세요.');
+        } else if (response.status === 500) {
+          throw new Error('AI 서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        } else {
+          throw new Error(errorData?.detail || `AI API 오류: ${response.status}`);
+        }
+      }
+
+      const result = await response.json();
+      console.log('AI 조치 방안 응답 받음:', {
+        totalVulnerabilities: result.analysis_summary?.total_vulnerabilities,
+        processedSuccessfully: result.analysis_summary?.processed_successfully,
+        fixesCount: result.vulnerability_fixes?.length
+      });
+
+      return result;
+    } catch (error) {
+      console.error('AI 조치 방안 요청 실패:', error);
+      if (error.message.includes('fetch')) {
+        throw new Error('AI 서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.');
+      }
+      throw error;
+    }
+  }
+
+  // AI API 상태 확인
+  async checkAIApiHealth(aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
+    try {
+      const response = await fetch(`${aiApiBaseUrl}/health`);
+      if (!response.ok) {
+        throw new Error(`AI API 상태 확인 실패: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('AI API 상태 확인 실패:', error);
+      throw new Error('AI API 서버에 연결할 수 없습니다.');
+    }
+  }
+
+  // 취약점 데이터를 AI API 형식으로 변환
+  transformToAIFormat(analysisResults, configText) {
+    const vulnerabilityReport = {
+      vulnerabilities: analysisResults.vulnerabilities.map((vuln, index) => ({
+        id: vuln.id || index + 1,
+        severity: vuln.severity || vuln.severityKo,
+        ruleId: vuln.ruleId,
+        description: vuln.description,
+        type: vuln.type || vuln.typeKo,
+        line: vuln.line,
+        recommendation: vuln.recommendation
+      })),
+      metadata: {
+        framework: analysisResults.metadata?.framework || 'Unknown',
+        deviceType: analysisResults.metadata?.deviceType || 'Unknown',
+        scanDate: new Date().toISOString().split('T')[0],
+        totalLines: analysisResults.metadata?.totalLines,
+        engineVersion: analysisResults.metadata?.engineVersion
+      }
+    };
+
+    return {
+      original_config: configText,
+      vulnerability_report: vulnerabilityReport
+    };
+  }
 }
 
 // 서비스 인스턴스 생성 및 내보내기

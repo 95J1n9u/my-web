@@ -1,388 +1,277 @@
-# 넷시큐어 (NetSecure) - 다중 지침서 네트워크 보안 분석기
+NetSecure - 네트워크 보안 분석 도구
 
-네트워크 장비 설정 파일을 다양한 보안 지침서(KISA, CIS, NW 등)로 동시에 분석하여 취약점을 탐지하는 웹 애플리케이션입니다.
+다중 보안 지침서 기반 네트워크 장비 설정 파일 취약점 분석 웹 애플리케이션
 
-## 🚀 주요 기능
+📋 목차
 
-### 📋 다중 보안 지침서 지원
+프로젝트 소개
+주요 기능
+지원 장비 및 지침서
+기술 스택
+설치 및 실행
+사용 방법
+프로젝트 구조
+API 문서
+보안 정책
+기여하기
+라이선스
 
-- **KISA** (한국인터넷진흥원): 38개 룰 - 한국 표준, 종합적 분석
-- **CIS** (Center for Internet Security): 11개 룰 - AAA 중심, 상세한 인증/권한 분석
-- **NW** (네트워크 보안 지침서): 42개 룰 - 물리 보안 강화, 최다 룰셋
-- **NIST** (National Institute of Standards): 구현 예정
+🚀 프로젝트 소개
+NetSecure는 네트워크 인프라의 보안을 강화하기 위한 종합적인 분석 도구입니다. 네트워크 장비에서 추출한 설정 파일을 업로드하면, 다양한 국제 보안 표준에 따라 자동으로 취약점을 탐지하고 개선 방안을 제시합니다.
+✨ 핵심 가치
 
-### 🔧 지원 장비 (10개 브랜드)
+다중 표준 지원: KISA, CIS, NW, NIST 등 다양한 보안 지침서 동시 적용
+지능형 분석: 논리 기반 분석과 패턴 매칭을 결합한 고도화된 탐지 엔진
+사용자 친화적: 직관적인 UI/UX와 상세한 분석 결과 제공
+확장성: 10개 브랜드, 169개 보안 룰을 지원하며 지속적으로 확장
 
-| 장비 브랜드  | 지원 지침서     | 최대 룰 수 |
-| ------------ | --------------- | ---------- |
-| **Cisco**    | KISA + CIS + NW | 91개       |
-| **Piolink**  | KISA + NW       | 65개       |
-| **Juniper**  | KISA + NW       | 60개       |
-| **Radware**  | KISA + NW       | 45개       |
-| **Passport** | KISA + NW       | 40개       |
-| **Alteon**   | KISA + NW       | 38개       |
-| **HP**       | NW              | 30개       |
-| **Alcatel**  | NW              | 28개       |
-| **Dasan**    | NW              | 25개       |
-| **Extreme**  | NW              | 25개       |
+🎯 주요 기능
+🔍 보안 분석
 
-### ⚡ 분석 기능
+다중 지침서 분석: 여러 보안 표준을 동시에 적용하여 종합적인 보안 점검
+실시간 분석: 업로드된 설정 파일에 대한 즉시 분석 및 결과 제공
+상세 리포트: 취약점별 상세 설명, 위험도, 개선 방안 제시
+비교 분석: 서로 다른 지침서 간의 분석 결과 비교
 
-- **단일 지침서 분석**: 특정 보안 표준으로 상세 분석
-- **다중 지침서 비교**: 여러 지침서를 동시에 적용하여 종합 분석
-- **논리 기반 탐지**: 단순 패턴 매칭을 넘어선 지능형 분석
-- **실시간 분석**: 평균 10-30초 내 결과 제공
-- **상세한 권고사항**: 각 지침서별 맞춤 해결방안 제시
+👤 사용자 관리
 
-## 🛠️ 기술 스택
+다중 인증: 이메일/비밀번호, Google OAuth 로그인 지원
+권한 관리: 일반 사용자, 관리자, 중간 관리자 역할 구분
+분석 기록: 개인별 분석 이력 저장 및 관리
+통계 대시보드: 개인 및 시스템 전체 통계 제공
 
-### Frontend
+🛠 고급 기능
 
-- **React 19.1.0** - 메인 UI 프레임워크
-- **Tailwind CSS 3.4.17** - 스타일링
-- **Lucide React** - 아이콘
-- **Recharts** - 데이터 시각화
+커뮤니티: 사용자 간 정보 공유 및 질의응답 게시판
+관리자 패널: 시스템 관리, 사용자 권한 관리, 통계 조회
+파일 검증: 업로드 파일의 보안 및 형식 검증
+모바일 지원: 반응형 디자인으로 모든 디바이스에서 접근 가능
 
-### Backend API
+🔧 지원 장비 및 지침서
+지원 장비 (10개 브랜드)
+브랜드장비 타입지원 지침서룰 수CiscoIOS/IOS-XE 라우터, 스위치KISA, CIS, NW91룰JuniperJunOS 네트워크 장비KISA, NW60룰HPNetworking 장비NW30룰Piolink로드밸런서KISA, NW65룰RadwareAlteon 로드밸런서KISA, NW45룰NortelPassport 장비KISA, NW40룰Alteon로드밸런서KISA, NW38룰Dasan네트워크 장비NW25룰Alcatel네트워크 장비NW28룰ExtremeNetworks 장비NW25룰
+보안 지침서 (4개 표준)
+지침서설명룰 수특징KISA한국인터넷진흥원 네트워크 장비 보안 가이드38룰국내 표준, 종합적CISCenter for Internet Security Controls89룰실무적 보안, AAA 중심NW네트워크 보안 강화 지침서42룰강화된 점검, 최신 기준NISTNIST Cybersecurity Framework예정미국 표준 (구현 예정)
+지원 파일 형식
 
-- **Base URL**: `https://kisa-network-analyzer-production.up.railway.app/api/v1`
-- **Engine**: Multi-Framework 1.0
-- **분석 엔진**: 논리 기반 + 패턴 매칭
-- **호스팅**: Railway (클라우드 플랫폼)
+.txt - 일반 텍스트 설정 파일
+.cfg - 설정 파일
+.conf - 구성 파일
+.xml - XML 형식 설정 파일
+.log - 로그 파일
 
-### 개발 도구
+💻 기술 스택
+Frontend
 
-- **Create React App 5.0.1**
-- **PostCSS + Autoprefixer**
-- **ESLint + Prettier**
+React 19: 모던 컴포넌트 기반 UI 프레임워크
+Tailwind CSS 3.4: 유틸리티 퍼스트 CSS 프레임워크
+React Hooks: 상태 관리 및 라이프사이클 관리
+React Router: 클라이언트 사이드 라우팅
 
-## 📦 설치 및 실행
+Backend & Database
 
-### 1. 저장소 클론
+Firebase Auth: 사용자 인증 및 권한 관리
+Firestore: NoSQL 실시간 데이터베이스
+Firebase Storage: 파일 저장 (필요시)
+외부 분석 API: Railway 호스팅 분석 엔진
 
-```bash
+개발 도구
+
+ESLint: 코드 품질 관리
+Prettier: 코드 포맷팅
+Husky: Git 훅 관리
+Bundle Analyzer: 번들 크기 최적화
+
+보안 & 검증
+
+DOMPurify: XSS 방지
+Content Validation: 파일 내용 검증
+Security Logger: 보안 이벤트 로깅
+Firebase Security Rules: 데이터베이스 보안
+
+🛠 설치 및 실행
+사전 요구사항
+
+Node.js 18.0.0 이상
+npm 8.0.0 이상
+Firebase 프로젝트 설정
+
+설치
+bash# 저장소 클론
 git clone https://github.com/your-org/netsecure-analyzer.git
 cd netsecure-analyzer
-```
 
-### 2. 의존성 설치
-
-```bash
+# 의존성 설치
 npm install
-```
 
-### 3. 환경 변수 설정
+# 환경 변수 설정
+cp .env.example .env.local
+# .env.local 파일에 Firebase 설정 입력
+Firebase 설정
 
-`.env` 파일을 생성하고 다음 내용을 추가:
+Firebase Console에서 새 프로젝트 생성
+Authentication, Firestore 활성화
+웹 앱 등록 후 설정 정보를 src/config/firebase.js에 입력
+Firestore 보안 규칙을 firestore.rules 파일 내용으로 설정
 
-```env
-REACT_APP_API_BASE_URL=https://kisa-network-analyzer-production.up.railway.app/api/v1
-REACT_APP_SERVICE_NAME=NetSecure Multi-Framework Analyzer
-REACT_APP_VERSION=2.0.0
-```
-
-### 4. 개발 서버 실행
-
-```bash
+실행
+bash# 개발 서버 시작
 npm start
-```
 
-브라우저에서 `http://localhost:3000` 접속
-
-### 5. 프로덕션 빌드
-
-```bash
+# 프로덕션 빌드
 npm run build
-```
 
-## 🔧 API 서버 설정
-
-분석 API 서버가 Railway 클라우드에서 실행되고 있습니다.
-
-### API 서버 상태 확인
-
-```bash
-curl https://kisa-network-analyzer-production.up.railway.app/api/v1/health
-```
-
-### 지원 지침서 확인
-
-```bash
-curl https://kisa-network-analyzer-production.up.railway.app/api/v1/frameworks
-```
-
-### 로컬 개발 시 API 서버 변경
-
-로컬에서 API 서버를 실행하는 경우 `.env` 파일을 수정:
-
-```env
-REACT_APP_API_BASE_URL=https://kisa-network-analyzer-production.up.railway.app/api/v1
-```
-
-## 📖 사용 방법
-
-### 1. 대시보드
-
-- 전체 분석 현황 및 통계 확인
-- 지원 지침서 및 장비 현황 조회
-- 최근 분석 결과 요약
-
-### 2. 파일 업로드 & 분석
-
-1. **보안 지침서 선택**: KISA, CIS, NW 중 선택 또는 다중 선택
-2. **장비 타입 선택**: 10개 브랜드 중 해당 장비 선택
-3. **설정 파일 업로드**: 드래그 앤 드롭 또는 파일 선택 (최대 50MB)
-4. **분석 실행**: 단일 또는 비교 분석 모드 선택
-
-### 3. 분석 결과
-
-- **취약점 목록**: 심각도별 필터링 및 상세 정보
-- **보안 점수**: 100점 만점 점수 및 통과/실패 통계
-- **비교 분석**: 여러 지침서 결과 동시 비교
-- **보고서 내보내기**: JSON 형식으로 결과 다운로드
-
-## 📄 지원 파일 형식
-
-| 장비 브랜드   | 지원 확장자             |
-| ------------- | ----------------------- |
-| Cisco IOS     | `.txt`, `.cfg`, `.conf` |
-| Juniper JunOS | `.conf`, `.txt`, `.xml` |
-| HP Networking | `.cfg`, `.txt`          |
-| 기타 브랜드   | `.cfg`, `.txt`          |
-
-## 🔍 분석 예시
-
-### KISA 지침서로 Cisco 장비 분석
-
-```bash
-curl -X POST https://kisa-network-analyzer-production.up.railway.app/api/v1/config-analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "deviceType": "Cisco",
-    "framework": "KISA",
-    "configText": "enable password cisco123\nsnmp-server community public RO",
-    "options": {"checkAllRules": true}
-  }'
-```
-
-### 다중 지침서 비교 분석 (웹 UI)
-
-1. 파일 업로드 페이지에서 "다중 지침서 비교 분석" 체크
-2. KISA, CIS, NW 지침서 모두 선택
-3. Cisco 장비 타입 선택
-4. 설정 파일 업로드 후 "비교 분석 시작" 클릭
-
-## 📊 지침서별 특징
-
-### KISA (38룰)
-
-- **강점**: 한국 환경에 최적화, 종합적 보안 검사
-- **심각도**: 상(14) + 중(19) + 하(5)
-- **특화**: AAA, 패치 관리, 로그 관리
-
-### CIS (11룰)
-
-- **강점**: 글로벌 표준, 인증/권한 중심
-- **심각도**: 상(6) + 중(5) + 하(0)
-- **특화**: 계정 관리, 접근 제어, 로그 관리
-
-### NW (42룰)
-
-- **강점**: 최다 룰셋, 물리 보안 강화
-- **심각도**: 상(8) + 중(30) + 하(4)
-- **특화**: 기능 관리, 네트워크 접근 제어
-
-## ⚡ 성능 및 제한사항
-
-### 분석 성능
-
-- **소형 설정** (< 100줄): ~0.05초
-- **중형 설정** (100-1000줄): ~0.1-0.5초
-- **대형 설정** (1000-5000줄): ~0.5-2초
-- **초대형 설정** (> 5000줄): ~2-10초
-
-### 제한사항
-
-- **최대 파일 크기**: 50MB
-- **동시 분석 요청**: 10개 권장
-- **분석 타임아웃**: 5분
-- **지원 브라우저**: Chrome, Firefox, Safari, Edge (최신 버전)
-
-## 🔧 개발 정보
-
-### 프로젝트 구조
-
-```
-src/
-├── components/          # React 컴포넌트
-│   ├── Dashboard.js    # 대시보드
-│   ├── FileUpload.js   # 파일 업로드
-│   ├── Header.js       # 헤더
-│   ├── Sidebar.js      # 사이드바
-│   ├── LoginModal.js      # 로그인모달
-│   └── VulnerabilityResults.js  # 결과 표시
-├── services/           # API 서비스
-│   └── analysisService.js  # 분석 API 클라이언트
-├── App.js             # 메인 앱 컴포넌트
-├── App.css            # 전역 스타일
-└── index.js           # 엔트리 포인트
-```
-
-### 주요 의존성
-
-```json
-{
-  "react": "^19.1.0",
-  "react-dom": "^19.1.0",
-  "tailwindcss": "^3.4.17",
-  "lucide-icons": "latest",
-  "recharts": "latest"
-}
-```
-
-### API 통신
-
-- **Base URL**: `https://kisa-network-analyzer-production.up.railway.app/api/v1`
-- **인증**: 현재 버전에서는 불필요
-- **요청 형식**: JSON
-- **응답 형식**: JSON
-- **오류 처리**: HTTP 상태 코드 + 메시지
-
-## 🚨 문제 해결
-
-### 자주 발생하는 문제
-
-#### 1. API 연결 실패
-
-```
-Error: 서비스 연결에 실패했습니다
-```
-
-**해결방법**:
-
-- Railway API 서버 상태 확인: `https://kisa-network-analyzer-production.up.railway.app/api/v1/health`
-- 인터넷 연결 상태 확인
-- CORS 설정 확인 (Railway 서버에서 설정됨)
-
-#### 2. 지침서 구현 오류
-
-```
-Error: NW 지침서는 아직 구현되지 않았습니다
-```
-
-**해결방법**:
-
-- `/health` 엔드포인트로 구현된 지침서 확인
-- 구현된 지침서만 사용
-
-#### 3. 파일 업로드 실패
-
-```
-Error: 파일 크기가 너무 큽니다
-```
-
-**해결방법**:
-
-- 파일 크기를 50MB 이하로 줄이기
-- 불필요한 설정 라인 제거
-- 지원되는 확장자 확인
-
-### 로그 확인
-
-```bash
-# 개발 서버 로그
-npm start
-
-# 브라우저 개발자 도구
-F12 > Console 탭
-
-# 네트워크 요청 확인
-F12 > Network 탭
-```
-
-## 🤝 기여 방법
-
-### 1. 이슈 리포트
-
-- [GitHub Issues](https://github.com/your-org/netsecure-analyzer/issues)에서 버그 신고
-- 재현 단계와 환경 정보 포함
-
-### 2. 기능 제안
-
-- 새로운 지침서 추가 요청
-- 장비 타입 지원 확장
-- UI/UX 개선 사항
-
-### 3. 코드 기여
-
-1. Fork 및 Clone
-2. Feature 브랜치 생성
-3. 코드 작성 및 테스트
-4. Pull Request 생성
-
-### 4. 개발 환경 설정
-
-```bash
-# ESLint 실행
+# 정적 서버로 빌드 결과 실행
+npm run serve
+기타 명령어
+bash# 코드 린팅
 npm run lint
+
+# 코드 포맷팅
+npm run prettier
 
 # 테스트 실행
 npm test
 
-# 타입 체크 (TypeScript 사용 시)
-npm run type-check
-```
+# 번들 크기 분석
+npm run analyze
+📖 사용 방법
+1. 회원가입 및 로그인
 
-## 📚 참고 자료
+이메일/비밀번호 또는 Google 계정으로 가입
+이메일 인증 후 서비스 이용 가능
 
-### 공식 문서
+2. 파일 분석
 
-- [API 명세서](./api.md)
-- [KISA 가이드라인](https://www.kisa.or.kr)
-- [CIS Controls](https://www.cisecurity.org)
-- [NIST Framework](https://www.nist.gov/cybersecurity)
+장비 타입 선택: 분석할 네트워크 장비 브랜드 선택
+지침서 선택: 적용할 보안 표준 선택 (다중 선택 가능)
+파일 업로드: 설정 파일을 드래그 앤 드롭 또는 선택
+분석 실행: 자동으로 취약점 분석 수행
 
-### 기술 문서
+3. 결과 확인
 
-- [React 공식 문서](https://react.dev)
-- [Tailwind CSS 문서](https://tailwindcss.com)
-- [Create React App 문서](https://create-react-app.dev)
+요약 대시보드: 전체 보안 점수, 취약점 수, 통과 항목 수
+상세 분석: 취약점별 설명, 위험도, 개선 방안
+보고서 내보내기: JSON 형식으로 분석 결과 다운로드
 
-## 📞 지원 및 문의
+4. 기록 관리
 
-### 기술 지원
+분석 이력: 과거 분석 결과 조회 및 관리
+통계 정보: 개인별 분석 통계 및 트렌드 확인
 
-- **GitHub**: [Issues 페이지](https://github.com/your-org/netsecure-analyzer/issues)
-- **Wiki**: [개발자 가이드](https://github.com/your-org/netsecure-analyzer/wiki)
-- **이메일**: security@example.com
+📁 프로젝트 구조
+src/
+├── components/           # React 컴포넌트
+│   ├── Dashboard.js     # 대시보드 메인 화면
+│   ├── FileUpload.js    # 파일 업로드 및 분석 설정
+│   ├── VulnerabilityResults.js  # 분석 결과 표시
+│   ├── AnalysisHistory.js       # 분석 기록 관리
+│   ├── CommunityPosts.js        # 커뮤니티 게시판
+│   ├── AdminPanel.js            # 관리자 패널
+│   └── ...
+├── services/            # 외부 API 및 서비스
+│   └── analysisService.js       # 분석 API 클라이언트
+├── config/              # 설정 파일
+│   └── firebase.js              # Firebase 설정 및 인증
+├── hooks/               # 커스텀 React 훅
+│   └── useAuth.js               # 인증 관련 훅
+├── utils/               # 유틸리티 함수
+│   ├── validation.js            # 입력 검증
+│   ├── sanitizer.js             # 데이터 정화
+│   └── security-logger.js       # 보안 로깅
+└── App.js               # 메인 애플리케이션 컴포넌트
+🔌 API 문서
+분석 엔진 API
+Base URL: https://kisa-network-analyzer-production.up.railway.app/api/v1
+주요 엔드포인트
+javascript// 헬스 체크
+GET /health
 
-### 상업적 문의
+// 지원 지침서 목록
+GET /frameworks
 
-- **라이선스**: MIT
-- **상업적 사용**: 자유
-- **기술 지원**: 유료 지원 옵션 문의
+// 설정 파일 분석
+POST /config-analyze
+{
+  "deviceType": "Cisco",
+  "framework": "KISA", 
+  "configText": "...",
+  "options": {
+    "checkAllRules": true,
+    "enableLogicalAnalysis": true
+  }
+}
 
-## 🏷️ 버전 정보
+// 다중 지침서 비교 분석
+POST /compare-analysis
+{
+  "deviceType": "Cisco",
+  "frameworks": ["KISA", "CIS", "NW"],
+  "configText": "..."
+}
+Firebase API
+javascript// 사용자 인증
+authService.signInWithEmail(email, password)
+authService.signInWithGoogle()
+authService.signUpWithEmail(email, password, displayName)
 
-### 현재 버전: v2.0.0
+// 분석 결과 저장
+authService.saveAnalysisResult(uid, analysisData)
+authService.getUserAnalyses(uid, limit)
 
-- ✅ KISA, CIS, NW 지침서 지원
-- ✅ 10개 브랜드 장비 지원
-- ✅ 다중 지침서 비교 분석
-- ✅ 논리 기반 분석 엔진
-- ✅ 실시간 분석 결과
+// 커뮤니티 기능
+authService.createPost(uid, postData)
+authService.getPosts(limit, category)
+🔒 보안 정책
+데이터 보호
 
-### 개발 로드맵
+업로드된 설정 파일은 분석 후 즉시 삭제
+모든 통신은 HTTPS로 암호화
+분석 결과는 사용자별로 격리 저장
 
-- **v2.1**: NIST 지침서 추가
-- **v2.2**: 사용자 정의 룰 생성
-- **v2.3**: 자동화된 보고서 생성
-- **v3.0**: AI 기반 분석 엔진
+파일 검증
 
-## 📄 라이선스
+파일 크기 제한 (최대 50MB)
+허용된 확장자만 업로드 가능
+악성 코드 및 위험 패턴 검사
+입력 데이터 무결성 검증
 
-MIT License - 자세한 내용은 [LICENSE](./LICENSE) 파일 참조
+접근 제어
 
----
+Firebase Security Rules 기반 권한 관리
+역할 기반 접근 제어 (RBAC)
+세션 관리 및 자동 로그아웃
 
-**🛡️ 보안은 선택이 아닌 필수입니다. NetSecure로 네트워크 보안을 강화하세요!**
+🤝 기여하기
+프로젝트 기여를 환영합니다! 다음 방법으로 참여할 수 있습니다:
+개발 참여
+
+저장소 포크
+기능 브랜치 생성 (git checkout -b feature/AmazingFeature)
+변경사항 커밋 (git commit -m 'Add some AmazingFeature')
+브랜치에 푸시 (git push origin feature/AmazingFeature)
+Pull Request 생성
+
+이슈 리포팅
+
+버그 리포트
+기능 요청
+보안 이슈 (private 이슈로 등록)
+
+문서 개선
+
+README 개선
+API 문서 업데이트
+사용자 가이드 작성
+
+📞 지원 및 문의
+
+이메일: support@netsecure.com
+고객센터: 1588-0000 (평일 09:00-18:00)
+GitHub Issues: 프로젝트 이슈 페이지
+
+📄 라이선스
+이 프로젝트는 MIT 라이선스 하에 있습니다. 자세한 내용은 LICENSE 파일을 참조하세요.
+
+NetSecure - 네트워크 보안의 새로운 기준을 제시합니다.
+© 2024 NetSecure Team. All rights reserved.

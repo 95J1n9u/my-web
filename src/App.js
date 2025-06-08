@@ -49,6 +49,7 @@ function App() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [showPostDetail, setShowPostDetail] = useState(false);
+  const [originalConfigText, setOriginalConfigText] = useState('');
   
 
   
@@ -525,6 +526,7 @@ const forceRefreshUserData = async () => {
     try {
       // 파일을 텍스트로 변환
       const configText = await analysisService.fileToText(file);
+      setOriginalConfigText(configText);
 
       if (!configText.trim()) {
         throw new Error('파일이 비어있거나 읽을 수 없습니다.');
@@ -912,6 +914,7 @@ const handleSignupSuccess = (userData) => {
                 onReset={resetAnalysis}
                 user={user}
                 isHistorical={!!selectedHistoryAnalysis} // 추가 prop
+                originalConfigText={originalConfigText}
               />
             )}
             {activeTab === 'history' && user && (
