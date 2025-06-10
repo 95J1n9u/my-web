@@ -22,6 +22,8 @@ import NoticesList from './components/NoticesList';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import PostDetail from './components/PostDetail';
+import EmergencyPhoneTest from './components/EmergencyPhoneTest'; // 🚑 긴급 테스트 컴포넌트
+import devHelper from './utils/devHelper'; // 🔥 개발용 헬퍼
 
 
 
@@ -52,6 +54,7 @@ function App() {
   const [originalConfigText, setOriginalConfigText] = useState('');
   
 
+
   
   // 게시글 작성 성공 처리
   const handlePostCreateSuccess = (postId) => {
@@ -79,6 +82,39 @@ function App() {
     new Set()
   );
 
+// 🔥 개발용 자동 로그인 (컴포넌트 마운트 시 한 번만)
+useEffect(() => {
+  const attemptDevAutoLogin = async () => {
+    const devStatus = devHelper.getDevStatus();
+    
+    if (devStatus.autoLoginEnabled && !user) {
+      console.log('🔥 개발용 자동 로그인 시도...');
+      
+      const result = await devHelper.devAutoLogin();
+      
+      if (result.success) {
+        devHelper.showDevNotification('개발용 자동 로그인 성공! SMS 인증을 우회했습니다.', 'success');
+        
+        // 테스트 데이터도 생성
+        setTimeout(async () => {
+          const testDataResult = await devHelper.createDevTestData(result.user);
+          if (testDataResult.success) {
+            console.log('✅ 테스트 데이터 생성 완료');
+          }
+        }, 2000);
+      } else {
+        console.warn('⚠️ 개발용 자동 로그인 실패:', result.error);
+        devHelper.showDevNotification(`자동 로그인 실패: ${result.error}`, 'warning');
+      }
+    }
+  };
+  
+  // 개발 환경에서만 자동 로그인 시도
+  if (process.env.NODE_ENV === 'development') {
+    attemptDevAutoLogin();
+  }
+}, []); // 빈 의존성 배열로 마운트시 한번만 실행
+
 // Firebase 인증 상태 변화 감지
 useEffect(() => {
   if (!auth) {
@@ -89,9 +125,18 @@ useEffect(() => {
 
   const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
     setAuthLoading(true);
+    
 
     try {
       if (firebaseUser) {
+       // 🔥 휴대폰 인증만 하고 이메일 인증이 안된 경우는 무시
+        if (!firebaseUser.emailVerified && firebaseUser.providerData.length === 1 && 
+            firebaseUser.providerData[0].providerId === 'phone') {
+          console.log('휴대폰 인증만된 임시 사용자, 무시함');
+          setAuthLoading(false);
+          return;
+        }
+
         // 사용자가 로그인된 상태
         console.log('Firebase 사용자 감지:', firebaseUser.displayName, firebaseUser.uid);
         
@@ -176,7 +221,6 @@ useEffect(() => {
     }
   });
 
-  // 컴포넌트 언마운트 시 리스너 정리
   return () => unsubscribe();
 }, []);
 
@@ -606,68 +650,82 @@ const forceRefreshUserData = async () => {
     }
 
       // 로그인된 사용자의 분석 결과를 Firestore에 저장
-      if (user?.uid && finalResults) {
-        try {
-          const analysisData = {
-            deviceType: deviceType,
-            framework: isComparison
-              ? comparisonFrameworks.join(', ')
-              : framework || selectedFramework,
-            fileName: file.name,
-            fileSize: file.size,
-            isComparison: isComparison,
-            comparisonFrameworks: isComparison ? comparisonFrameworks : null,
+          if (user?.uid && finalResults) {
+            try {
+              const analysisData = {
+                deviceType: deviceType,
+                framework: isComparison
+                  ? comparisonFrameworks.join(', ')
+                  : framework || selectedFramework,
+                fileName: file.name.substring(0, 100), // 파일명 길이 제한
+                fileSize: Math.min(file.size, 52428800), // 50MB 제한
+                isComparison: isComparison,
+                comparisonFrameworks: isComparison ? comparisonFrameworks : null,
 
-            // 결과 요약 (비교 분석의 경우 첫 번째 성공한 결과 사용)
-            summary: isComparison
-              ? Object.values(finalResults.frameworks).find(r => !r.error)
-                  ?.summary || {}
-              : finalResults.summary,
+                // 결과 요약 (안전한 값으로 변환)
+                summary: {
+                  ...((isComparison
+                    ? Object.values(finalResults.frameworks).find(r => !r.error)?.summary 
+                    : finalResults.summary) || {}),
+                  totalChecks: Math.max(0, parseInt((isComparison
+                    ? Object.values(finalResults.frameworks).find(r => !r.error)?.summary?.totalChecks
+                    : finalResults.summary?.totalChecks) || 0)),
+                  vulnerabilities: Math.max(0, parseInt((isComparison
+                    ? Object.values(finalResults.frameworks).find(r => !r.error)?.summary?.vulnerabilities
+                    : finalResults.summary?.vulnerabilities) || 0))
+                },
 
-            // 메타데이터
-            metadata: isComparison
-              ? Object.values(finalResults.frameworks).find(r => !r.error)
-                  ?.metadata || {}
-              : finalResults.metadata,
+                // 메타데이터 (크기 제한)
+                metadata: {
+                  ...((isComparison
+                    ? Object.values(finalResults.frameworks).find(r => !r.error)?.metadata
+                    : finalResults.metadata) || {}),
+                  deviceType: deviceType.substring(0, 50),
+                  framework: (framework || selectedFramework).substring(0, 50)
+                },
 
-            // 취약점 목록 (비교 분석의 경우 모든 프레임워크의 취약점 합계)
-            vulnerabilities: isComparison
-              ? Object.values(finalResults.frameworks)
-                  .filter(r => !r.error)
-                  .flatMap(r => r.vulnerabilities || [])
-                  .slice(0, 10) // 최대 10개만 저장
-              : finalResults.vulnerabilities || [],
-          };
+                // 취약점 목록 (최대 5개만)
+                vulnerabilities: (isComparison
+                  ? Object.values(finalResults.frameworks)
+                      .filter(r => !r.error)
+                      .flatMap(r => r.vulnerabilities || [])
+                      .slice(0, 5)
+                  : (finalResults.vulnerabilities || []).slice(0, 5)
+                ).map(vuln => ({
+                  id: String(vuln.id || ''),
+                  severity: String(vuln.severity || ''),
+                  type: String(vuln.type || ''),
+                  description: String(vuln.description || '').substring(0, 200),
+                  ruleId: String(vuln.ruleId || ''),
+                  framework: String(vuln.framework || ''),
+                  line: parseInt(vuln.line) || 0
+                })),
+              };
 
-          // 보안 점수 계산
-          if (
-            analysisData.summary.totalChecks &&
-            analysisData.summary.totalChecks > 0
-          ) {
-            analysisData.summary.securityScore = Math.round(
-              ((analysisData.summary.totalChecks -
-                (analysisData.summary.vulnerabilities || 0)) /
-                analysisData.summary.totalChecks) *
-                100
-            );
-          }
+              // 보안 점수 계산 (안전한 방식)
+              const totalChecks = analysisData.summary.totalChecks || 1;
+              const vulnerabilities = analysisData.summary.vulnerabilities || 0;
+              analysisData.summary.securityScore = Math.round(
+                Math.max(0, Math.min(100, ((totalChecks - vulnerabilities) / totalChecks) * 100))
+              );
 
-          console.log('Saving analysis result to Firestore:', analysisData);
-          const saveResult = await authService.saveAnalysisResult(
-            user.uid,
-            analysisData
-          );
+              console.log('Saving analysis result to Firestore:', {
+                dataSize: JSON.stringify(analysisData).length,
+                vulnerabilityCount: analysisData.vulnerabilities.length
+              });
+
+              const saveResult = await authService.saveAnalysisResult(
+                user.uid,
+                analysisData
+              );
 
           if (saveResult.success) {
-            console.log(
-              'Analysis result saved successfully:',
-              saveResult.analysisId
-            );
-
-            setAnalysisRecordCount(prev => prev + 1);
-          } else {
-            console.error('Failed to save analysis result:', saveResult.error);
-          }
+                console.log('Analysis result saved successfully:', saveResult.analysisId);
+                setAnalysisRecordCount(prev => prev + 1);
+              } else {
+                console.error('Failed to save analysis result:', saveResult.error);
+                // 저장 실패해도 분석은 계속 진행
+              }
 
           // 분석 횟수 증가
           await authService.incrementAnalysisCount(user.uid);
@@ -689,10 +747,10 @@ const forceRefreshUserData = async () => {
             setTimeout(() => setActiveTab('dashboard'), 100); // 다시 대시보드로 돌아감
           }
         } catch (saveError) {
-          console.error('Error saving analysis result:', saveError);
-          // 저장 실패해도 분석 결과는 표시
-        }
-      }
+              console.error('Error in save process:', saveError);
+              // 저장 실패해도 분석 결과는 표시
+            }
+          }
     } catch (error) {
       console.error('Analysis failed:', error);
       setAnalysisError(error.message);
@@ -862,7 +920,13 @@ const handleSignupSuccess = (userData) => {
               />
             )}
             {activeTab === 'community' && (
-              showCreatePost ? (
+              showPostDetail ? (
+                <PostDetail
+                  postId={selectedPost}
+                  onBack={handleBackFromPost}
+                  user={user}
+                />
+              ) : showCreatePost ? (
                 <CreatePost
                   user={user}
                   onSuccess={handlePostCreateSuccess}
@@ -870,13 +934,10 @@ const handleSignupSuccess = (userData) => {
                 />
               ) : (
                 <CommunityPosts
-                  key={communityResetKey} // 이 줄 추가
+                  key={communityResetKey}
                   user={user}
                   onCreatePost={() => setShowCreatePost(true)}
-                  onViewPost={(postId) => {
-                    console.log('View post:', postId);
-                    // TODO: 게시글 상세 보기 구현
-                  }}
+                  onViewPost={handleViewPost}
                 />
               )
             )}
@@ -935,7 +996,123 @@ const handleSignupSuccess = (userData) => {
                 }}
               />
             )}
-            {/* 관리자 패널 추가 */}
+            {/* 🚑 긴급 SMS 테스트 (개발 환경에서만) */}
+            {activeTab === 'emergency-sms' && process.env.NODE_ENV === 'development' && (
+              <EmergencyPhoneTest />
+            )}
+            {/* 🔥 개발자 도구 (개발 환경에서만) */}
+            {activeTab === 'dev-tools' && process.env.NODE_ENV === 'development' && (
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-6">🔧 개발자 도구</h1>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* 자동 로그인 */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-3">자동 로그인</h3>
+                      <p className="text-sm text-gray-600 mb-4">SMS 인증을 우회하여 테스트 계정으로 로그인</p>
+                      <button
+                        onClick={async () => {
+                          const result = await devHelper.devAutoLogin();
+                          if (result.success) {
+                            devHelper.showDevNotification('자동 로그인 성공!', 'success');
+                          } else {
+                            devHelper.showDevNotification(result.error, 'error');
+                          }
+                        }}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        테스트 계정으로 로그인
+                      </button>
+                    </div>
+                    
+                    {/* 샘플 파일 다운로드 */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-3">샘플 설정 파일</h3>
+                      <p className="text-sm text-gray-600 mb-4">테스트용 네트워크 장비 설정 파일 다운로드</p>
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => devHelper.downloadSampleFile('Cisco')}
+                          className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                        >
+                          Cisco 샘플 다운로드
+                        </button>
+                        <button
+                          onClick={() => devHelper.downloadSampleFile('Juniper')}
+                          className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                        >
+                          Juniper 샘플 다운로드
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* 테스트 데이터 생성 */}
+                    {user && (
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-lg font-semibold mb-3">테스트 데이터</h3>
+                        <p className="text-sm text-gray-600 mb-4">분석 기록에 테스트 데이터 추가</p>
+                        <button
+                          onClick={async () => {
+                            const result = await devHelper.createDevTestData(user);
+                            if (result.success) {
+                              devHelper.showDevNotification('테스트 데이터 생성 완료!', 'success');
+                              setAnalysisRecordCount(prev => prev + 1);
+                            } else {
+                              devHelper.showDevNotification(result.error, 'error');
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                        >
+                          테스트 분석 기록 생성
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* 환경변수 상태 */}
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-3">환경 설정</h3>
+                      <div className="text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span>SMS 인증 우회:</span>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            process.env.REACT_APP_SKIP_SMS_AUTH === 'true' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {process.env.REACT_APP_SKIP_SMS_AUTH === 'true' ? '활성화' : '비활성화'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>자동 로그인:</span>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            process.env.REACT_APP_DEV_AUTO_LOGIN === 'true' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {process.env.REACT_APP_DEV_AUTO_LOGIN === 'true' ? '활성화' : '비활성화'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>테스트 이메일:</span>
+                          <span className="text-gray-600">
+                            {process.env.REACT_APP_DEV_TEST_EMAIL || '미설정'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 className="text-sm font-semibold text-yellow-800 mb-2">⚠️ 개발 전용 기능</h4>
+                    <p className="text-sm text-yellow-700">
+                      이 도구들은 개발 환경에서만 사용할 수 있으며, 프로덕션에서는 자동으로 비활성화됩니다.
+                      SMS 인증 문제를 우회하여 빠른 테스트가 가능합니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* 관리자 패널 */}
             {activeTab === 'admin' && user && (
               <AdminPanel user={user} />
             )}

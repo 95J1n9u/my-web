@@ -16,11 +16,6 @@ service cloud.firestore {
       return request.auth.uid;
     }
     
-    // 사용자 권한 확인 (Firestore에서 직접 확인)
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-    
     // 관리자 권한 확인 (안전한 방식)
     function isAdmin() {
       return isAuthenticated() && 
@@ -52,45 +47,38 @@ service cloud.firestore {
     // 사용자 컬렉션 (/users/{userId})
     // ========================================
     match /users/{userId} {
-      // 읽기: 모든 인증된 사용자 (프로필 정보 공유를 위해)
-      allow read: if isAuthenticated();
+      // 읽기: 인증된 사용자 + 휴대폰 번호 중복 체크를 위한 제한적 접근
+      allow read: if isAuthenticated() || 
+                  isPhoneDuplicateCheck();
       
       // 생성: 인증된 사용자가 본인 계정만 생성 가능
       allow create: if isAuthenticated() && 
-                    currentUserId() == userId &&
-                    isValidUserData(request.resource.data);
+                    currentUserId() == userId;
       
-      // 수정: 본인은 제한된 필드만, 관리자는 모든 필드 수정 가능
+      // 수정: 본인 또는 관리자
       allow update: if isAuthenticated() && 
-                    ((currentUserId() == userId && isValidUserUpdate(request.resource.data)) ||
-                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-                      isValidAdminUserUpdate(request.resource.data)));
+                    (currentUserId() == userId || isAdmin());
       
-      // 삭제: 관리자만 가능
-      allow delete: if isAuthenticated() && 
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // 삭제: 관리자만
+      allow delete: if isAdmin();
       
-      // 사용자 데이터 유효성 검증 (생성시)
-      function isValidUserData(data) {
-        return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
-               data.uid == userId &&
-               isValidEmail(data.email) &&
-               isValidRole(data.role) &&
-               data.createdAt == request.time;
+      // 🔥 휴대폰 번호 중복 체크를 위한 특별 권한
+      function isPhoneDuplicateCheck() {
+        return request.auth == null && 
+              request.query != null &&
+              request.query.limit <= 1 &&
+              resource.data.keys().hasOnly(['phoneNumber', 'uid', 'email', 'displayName', 'createdAt', 'role', 'emailVerified', 'phoneVerified', 'lastLoginAt', 'analysisCount', 'preferences', 'provider']);
       }
       
       // 일반 사용자 업데이트 검증 (본인만)
       function isValidUserUpdate(data) {
-        let allowedFields = ['displayName', 'photoURL', 'preferences', 'lastLoginAt', 'analysisCount'];
+        let allowedFields = ['displayName', 'photoURL', 'preferences', 'lastLoginAt', 'analysisCount', 'phoneNumber', 'phoneVerified', 'aiUsage', 'lastAIUsedAt'];
         return data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
       }
       
       // 관리자 업데이트 검증
       function isValidAdminUserUpdate(data) {
-        return isValidRole(data.role) || 
-               !data.diff(resource.data).affectedKeys().hasAny(['role']);
+        return true; // 관리자는 모든 필드 수정 가능
       }
       
       // ========================================
@@ -99,9 +87,7 @@ service cloud.firestore {
       match /analyses/{analysisId} {
         // 읽기: 본인 또는 관리자
         allow read: if isAuthenticated() && 
-                    (currentUserId() == userId || 
-                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+                    (currentUserId() == userId || isAdmin());
         
         // 생성: 인증된 본인만
         allow create: if isAuthenticated() && 
@@ -115,15 +101,12 @@ service cloud.firestore {
         
         // 삭제: 본인 또는 관리자
         allow delete: if isAuthenticated() && 
-                      (currentUserId() == userId || 
-                       (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+                      (currentUserId() == userId || isAdmin());
         
         // 분석 데이터 유효성 검증
         function isValidAnalysisData(data) {
           return data.keys().hasAll(['userId', 'timestamp', 'deviceType', 'framework']) &&
-                 data.userId == userId &&
-                 data.timestamp == request.time;
+                 data.userId == userId;
         }
         
         // 분석 데이터 업데이트 검증
@@ -138,50 +121,53 @@ service cloud.firestore {
     // 커뮤니티 게시글 컬렉션 (/posts/{postId})
     // ========================================
     match /posts/{postId} {
-  // 읽기: 완전히 공개 - 누구나 모든 게시글 읽기 가능
-  allow read: if true;
-  
-  // 리스트 읽기도 명시적으로 허용
-  allow list: if true;
-  
-  // 생성: 인증된 사용자만
-  allow create: if isAuthenticated() && 
-                request.resource.data.authorId == currentUserId();
-  
-  // 수정: 작성자 본인 또는 관리자
-    // 또는 인증된 사용자가 views 필드만 1 증가시키는 경우 허용
-  allow update: if isAuthenticated() && (
-                  (resource.data.authorId == currentUserId() ||
-                   (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')) ||
-                  (
-                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
-                    request.resource.data.views == resource.data.views + 1
-                  )
-                );
-  
-  // 삭제: 작성자 본인 또는 관리자
-  allow delete: if isAuthenticated() && 
-                (resource.data.authorId == currentUserId() || 
-                 (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+      // 읽기: 완전히 공개 - 누구나 모든 게시글 읽기 가능
+      allow read: if true;
       
-      // 게시글 데이터 유효성 검증
-      function isValidPostData(data) {
-        let validCategories = ['general', 'question', 'tip', 'discussion', 'bug-report', 'feature-request'];
-        return data.keys().hasAll(['title', 'content', 'category', 'authorId', 'createdAt', 'isPublished']) &&
-               isValidString(data.title, 1, 200) &&
-               isValidString(data.content, 1, 10000) &&
-               data.category in validCategories &&
-               data.authorId == currentUserId() &&
-               data.createdAt == request.time &&
-               data.isPublished == true;
-      }
+      // 리스트 읽기도 명시적으로 허용
+      allow list: if true;
       
-      // 게시글 업데이트 검증
-      function isValidPostUpdate(data) {
-        let allowedFields = ['title', 'content', 'category', 'tags', 'updatedAt', 'views'];
-        return data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+      // 생성: 인증된 사용자만
+      allow create: if isAuthenticated() && 
+                    request.resource.data.authorId == currentUserId();
+      
+      // 수정: 작성자 본인, 관리자, 또는 조회수 증가
+      allow update: if isAuthenticated() && (
+                      (resource.data.authorId == currentUserId()) ||
+                      (isAdmin()) ||
+                      (
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+                        request.resource.data.views == resource.data.views + 1
+                      )
+                    );
+      
+      // 삭제: 작성자 본인 또는 관리자
+      allow delete: if isAuthenticated() && 
+                    (resource.data.authorId == currentUserId() || isAdmin());
+      
+      // 댓글 서브컬렉션
+      match /comments/{commentId} {
+        // 읽기: 모든 사람 허용
+        allow read: if true;
+        
+        // 생성: 인증된 사용자만
+        allow create: if isAuthenticated() && 
+                      isValidCommentData(request.resource.data);
+        
+        // 수정: 작성자 본인 또는 관리자
+        allow update: if isAuthenticated() && 
+                      (resource.data.authorId == currentUserId() || isAdmin());
+        
+        // 삭제: 작성자 본인 또는 관리자
+        allow delete: if isAuthenticated() && 
+                      (resource.data.authorId == currentUserId() || isAdmin());
+        
+        // 댓글 데이터 유효성 검증
+        function isValidCommentData(data) {
+          return data.keys().hasAll(['content', 'authorId', 'createdAt']) &&
+                 isValidString(data.content, 1, 1000) &&
+                 data.authorId == currentUserId();
+        }
       }
     }
     
@@ -193,32 +179,23 @@ service cloud.firestore {
       allow read: if true;
       
       // 생성: 관리자만
-      allow create: if isAuthenticated() && 
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-                    isValidNoticeData(request.resource.data);
+      allow create: if isAdmin() && isValidNoticeData(request.resource.data);
       
-      // 수정: 관리자 또는 인증된 사용자가 views 필드를 1 증가시키는 경우 허용
+      // 수정: 관리자 또는 조회수 증가
       allow update: if isAuthenticated() && (
-                    (
-                      exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-                      isValidNoticeUpdate(request.resource.data)
-                    ) ||
-                    (
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
-                      request.resource.data.views == resource.data.views + 1
-                    )
-                  );
+                      (isAdmin() && isValidNoticeUpdate(request.resource.data)) ||
+                      (
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+                        request.resource.data.views == resource.data.views + 1
+                      )
+                    );
       
       // 삭제: 관리자만
-      allow delete: if isAuthenticated() && 
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow delete: if isAdmin();
       
       // 공지사항 데이터 유효성 검증
       function isValidNoticeData(data) {
-        let allowedFields = ['title', 'content', 'category', 'priority', 'isPinned', 'expiresAt', 'updatedAt', 'updatedBy', 'views'];
+        let validCategories = ['general', 'maintenance', 'update', 'security', 'event'];
         let validPriorities = ['normal', 'high', 'urgent'];
         return data.keys().hasAll(['title', 'content', 'category', 'priority', 'authorId', 'createdAt', 'isPublished']) &&
                isValidString(data.title, 1, 200) &&
@@ -226,7 +203,6 @@ service cloud.firestore {
                data.category in validCategories &&
                data.priority in validPriorities &&
                data.authorId == currentUserId() &&
-               data.createdAt == request.time &&
                data.isPublished == true;
       }
       
@@ -238,50 +214,14 @@ service cloud.firestore {
     }
     
     // ========================================
-    // 댓글 컬렉션 (/posts/{postId}/comments/{commentId})
-    // ========================================
-    match /posts/{postId}/comments/{commentId} {
-      // 읽기: 모든 사람 허용
-      allow read: if true;
-      
-      // 생성: 인증된 사용자만
-      allow create: if isAuthenticated() && 
-                    isValidCommentData(request.resource.data);
-      
-      // 수정: 작성자 본인 또는 관리자
-      allow update: if isAuthenticated() && 
-                    (resource.data.authorId == currentUserId() || 
-                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
-      
-      // 삭제: 작성자 본인 또는 관리자
-      allow delete: if isAuthenticated() && 
-                    (resource.data.authorId == currentUserId() || 
-                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
-      
-      // 댓글 데이터 유효성 검증
-      function isValidCommentData(data) {
-        return data.keys().hasAll(['content', 'authorId', 'createdAt']) &&
-               isValidString(data.content, 1, 1000) &&
-               data.authorId == currentUserId() &&
-               data.createdAt == request.time;
-      }
-    }
-    
-    // ========================================
     // 시스템 설정 컬렉션 (/system/{configId})
     // ========================================
     match /system/{configId} {
       // 읽기: 관리자만
-      allow read: if isAuthenticated() && 
-                  exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read: if isAdmin();
       
       // 쓰기: 관리자만
-      allow write: if isAuthenticated() && 
-                   exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if isAdmin();
     }
     
     // ========================================
@@ -289,14 +229,10 @@ service cloud.firestore {
     // ========================================
     match /stats/{statId} {
       // 읽기: 관리자만
-      allow read: if isAuthenticated() && 
-                  exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                  get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read: if isAdmin();
       
       // 쓰기: 관리자만
-      allow write: if isAuthenticated() && 
-                   exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if isAdmin();
     }
     
     // ========================================

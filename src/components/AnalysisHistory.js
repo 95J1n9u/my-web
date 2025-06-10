@@ -492,101 +492,160 @@ const AnalysisHistory = ({ user, onSelectAnalysis, onRecordCountChange }) => {
                         </h4>
                         <div className="flex items-center space-x-2">
                           <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setExpandedVulnerabilities(prev => ({
-                                ...prev,
-                                [analysis.id]: !prev[analysis.id]
-                              }));
-                            }}
-                            className="text-xs text-blue-600 hover:text-blue-700 underline flex items-center space-x-1"
+                          onClick={(e) => {
+                          e.preventDefault();
+                          setExpandedVulnerabilities(prev => ({
+                          ...prev,
+                          [analysis.id]: !prev[analysis.id]
+                          }));
+                          }}
+                          className="inline-flex items-center px-3 py-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors"
                           >
-                            <span>
-                              {isVulnerabilitiesExpanded ? 
-                                '간단히 보기' : 
-                                `전체 ${vulnerabilitiesCount}개 보기`
-                              }
-                            </span>
-                            <svg
-                              className={`w-3 h-3 transition-transform duration-200 ${
-                                isVulnerabilitiesExpanded ? 'rotate-180' : ''
-                              }`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
+                          <span className="mr-1">
+                          {isVulnerabilitiesExpanded ? 
+                          '간단히 보기' : 
+                          `전체 ${vulnerabilitiesCount}개 보기`
+                          }
+                          </span>
+                          <svg
+                          className={`w-3 h-3 transition-transform duration-200 ${
+                          isVulnerabilitiesExpanded ? 'rotate-180' : ''
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          >
+                          <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                          />
+                          </svg>
                           </button>
                         </div>
                       </div>
                       
-                      {/* 취약점 목록 */}
-                      <div className="space-y-2">
+                      {/* 취약점 목록 - 긴 텍스트 처리 개선 */}
+                      <div className="space-y-3">
                         {(isVulnerabilitiesExpanded ? 
                           analysis.vulnerabilities : 
                           analysis.vulnerabilities.slice(0, 3)
                         ).map((vuln, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center space-x-3 flex-1">
+                          <div key={index} className={`p-4 bg-gray-50 rounded-lg ${
+                            isVulnerabilitiesExpanded ? 'space-y-3' : ''
+                          }`}>
+                            {/* 첫 번째 줄: 심각도와 설명 */}
+                            <div className="flex items-start space-x-3">
                               <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSeverityColor(vuln.severity)}`}
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${getSeverityColor(vuln.severity)}`}
                               >
                                 {vuln.severity}
                               </span>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm text-gray-900 truncate">
+                                <p className={`text-sm text-gray-900 ${
+                                  isVulnerabilitiesExpanded ? 'whitespace-normal break-words' : 'truncate'
+                                }`}>
                                   {vuln.description}
                                 </p>
-                                {vuln.recommendation && isVulnerabilitiesExpanded && (
-                                  <p className="text-xs text-gray-500 mt-1 truncate">
-                                    권장: {vuln.recommendation}
-                                  </p>
-                                )}
                               </div>
                             </div>
-                              <div className="flex items-center space-x-2 flex-shrink-0">
-                                {vuln.ruleId && (
-                                  <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">
-                                    {vuln.ruleId}
-                                  </span>
+                            
+                            {/* 두 번째 줄: 추가 정보 (전체 보기일 때만) */}
+                            {isVulnerabilitiesExpanded && (
+                              <div className="space-y-2">
+                                {vuln.recommendation && (
+                                  <div className="pl-3 border-l-2 border-blue-200">
+                                    <p className="text-xs text-gray-600 break-words">
+                                      <span className="font-medium text-blue-700">권장사항:</span> {vuln.recommendation}
+                                    </p>
+                                  </div>
                                 )}
-                                {isVulnerabilitiesExpanded && (
-                                  <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">
+                                
+                                {/* 메타 정보 */}
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                  {vuln.ruleId && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs bg-white text-gray-600 rounded border">
+                                      룰 ID: {vuln.ruleId}
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center px-2 py-1 text-xs bg-white text-gray-600 rounded border">
                                     {typeof vuln.line === 'number' && vuln.line > 0
                                       ? `라인 ${vuln.line}`
                                       : '라인 정보 없음'}
                                   </span>
-                                )}
+                                  {vuln.impact && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs bg-yellow-50 text-yellow-700 rounded border border-yellow-200">
+                                      영향: {vuln.impact}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-
+                            )}
+                            
+                            {/* 간단 보기일 때 메타 정보 */}
+                            {!isVulnerabilitiesExpanded && (
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  {vuln.ruleId && (
+                                    <span className="text-xs text-gray-500">
+                                      {vuln.ruleId}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-xs text-gray-400">
+                                  {typeof vuln.line === 'number' && vuln.line > 0
+                                    ? `라인 ${vuln.line}`
+                                    : ''}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
 
-                      {/* 확장된 상태에서 추가 정보 */}
+                      {/* 확장된 상태에서 요약 정보 - 개선된 레이아웃 */}
                       {isVulnerabilitiesExpanded && vulnerabilitiesCount > 0 && (
-                        <div className="mt-4 pt-3 border-t border-gray-100">
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>
-                              심각도별: 고위험 {analysis.summary?.highSeverity || 0}개, 
-                              중위험 {analysis.summary?.mediumSeverity || 0}개, 
-                              저위험 {analysis.summary?.lowSeverity || 0}개
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onSelectAnalysis(analysis);
-                              }}
-                              className="text-blue-600 hover:text-blue-700 underline"
-                            >
-                              전체 분석 결과 보기
-                            </button>
+                        <div className="mt-4 pt-4 border-t border-gray-200 bg-gray-25 rounded-lg p-3">
+                          <div className="space-y-3">
+                            {/* 심각도별 통계 */}
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-2">
+                                <div className="text-lg font-bold text-red-700">
+                                  {analysis.summary?.highSeverity || 0}
+                                </div>
+                                <div className="text-xs text-red-600">고위험</div>
+                              </div>
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                                <div className="text-lg font-bold text-yellow-700">
+                                  {analysis.summary?.mediumSeverity || 0}
+                                </div>
+                                <div className="text-xs text-yellow-600">중위험</div>
+                              </div>
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                                <div className="text-lg font-bold text-blue-700">
+                                  {analysis.summary?.lowSeverity || 0}
+                                </div>
+                                <div className="text-xs text-blue-600">저위험</div>
+                              </div>
+                            </div>
+                            
+                            {/* 액션 버튼 */}
+                            <div className="text-center">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  onSelectAnalysis(analysis);
+                                }}
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                전체 분석 결과 보기
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}

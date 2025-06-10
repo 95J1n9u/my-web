@@ -679,178 +679,284 @@ const safeComplianceSummary = apiResult.complianceSummary ? {
     };
   }
 // AI 기반 취약점 조치 방안 분석
-  async getAIRemediation(configText, vulnerabilityReport, aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
-    try {
-      console.log('=== AI API Request Debug ===');
-      console.log('AI API URL:', `${aiApiBaseUrl}/analyze-vulnerabilities`);
-      console.log('Config text length:', configText.length);
-      console.log('Config text preview:', configText.substring(0, 200) + '...');
-      console.log('Vulnerability report structure:', {
-        type: typeof vulnerabilityReport,
-        keys: Object.keys(vulnerabilityReport),
-        vulnerabilities_count: vulnerabilityReport.vulnerabilities?.length,
-        metadata_keys: Object.keys(vulnerabilityReport.metadata || {})
-      });
+// 기존 getAIRemediation 메서드 업데이트
+async getAIRemediation(
+  configText, 
+  vulnerabilityReport, 
+  aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app',
+  options = {}
+) {
+  try {
+    console.log('=== AI API Request Debug ===');
+    console.log('AI API URL:', `${aiApiBaseUrl}/analyze-vulnerabilities`);
+    console.log('Config text length:', configText.length);
+    console.log('Vulnerability count:', vulnerabilityReport.vulnerabilities?.length);
 
-      // 요청 데이터 구성 및 검증
-      const requestBody = {
-        original_config: configText,
-        vulnerability_report: vulnerabilityReport
-      };
+    // 🔥 새로운 요청 파라미터 추가
+    const requestBody = {
+      original_config: configText,
+      vulnerability_report: vulnerabilityReport,
+      // 새로운 파라미터들
+      batch_size: options.batch_size || null, // null이면 자동 최적화
+      max_concurrent: options.max_concurrent || 3,
+      enable_streaming: options.enable_streaming || false
+    };
 
-      // 데이터 검증
-      if (!requestBody.original_config || typeof requestBody.original_config !== 'string') {
-        throw new Error('original_config must be a non-empty string');
-      }
+    // 데이터 검증 (기존 로직 유지)
+    if (!requestBody.original_config || typeof requestBody.original_config !== 'string') {
+      throw new Error('original_config must be a non-empty string');
+    }
 
-      if (!requestBody.vulnerability_report || typeof requestBody.vulnerability_report !== 'object') {
-        throw new Error('vulnerability_report must be an object');
-      }
+    // JSON 직렬화
+    const jsonString = JSON.stringify(requestBody);
+    console.log('✓ JSON serialization successful, length:', jsonString.length);
 
-      if (!Array.isArray(requestBody.vulnerability_report.vulnerabilities)) {
-        throw new Error('vulnerability_report.vulnerabilities must be an array');
-      }
-
-      if (!requestBody.vulnerability_report.metadata || typeof requestBody.vulnerability_report.metadata !== 'object') {
-        throw new Error('vulnerability_report.metadata must be an object');
-      }
-
-      console.log('=== Request Body Validation ===');
-      console.log('✓ original_config: string,', requestBody.original_config.length, 'chars');
-      console.log('✓ vulnerability_report: object');
-      console.log('✓ vulnerabilities: array,', requestBody.vulnerability_report.vulnerabilities.length, 'items');
-      console.log('✓ metadata: object,', Object.keys(requestBody.vulnerability_report.metadata).length, 'keys');
-
-      // 각 취약점 데이터 상세 검증
-      requestBody.vulnerability_report.vulnerabilities.forEach((vuln, index) => {
-        console.log(`Vulnerability ${index}:`, {
-          id: vuln.id,
-          severity: vuln.severity,
-          ruleId: vuln.ruleId,
-          description_length: vuln.description?.length,
-          type: vuln.type,
-          line: vuln.line,
-          recommendation_length: vuln.recommendation?.length
-        });
-
-        // 필수 필드 검증
-        if (!vuln.id || typeof vuln.id !== 'string') {
-          throw new Error(`Vulnerability ${index}: id must be a string`);
-        }
-        if (!vuln.severity || typeof vuln.severity !== 'string') {
-          throw new Error(`Vulnerability ${index}: severity must be a string`);
-        }
-        if (!vuln.description || typeof vuln.description !== 'string') {
-          throw new Error(`Vulnerability ${index}: description must be a string`);
-        }
-      });
-
-      // JSON 직렬화 테스트
-      let jsonString;
-      try {
-        jsonString = JSON.stringify(requestBody);
-        console.log('✓ JSON serialization successful, length:', jsonString.length);
-      } catch (jsonError) {
-        console.error('✗ JSON serialization failed:', jsonError);
-        throw new Error('요청 데이터를 JSON으로 변환할 수 없습니다: ' + jsonError.message);
-      }
-
-      console.log('=== Sending Request ===');
-      console.log('Request headers:', {
+    console.log('=== Sending Request ===');
+    
+    const response = await fetch(`${aiApiBaseUrl}/analyze-vulnerabilities`, {
+      method: 'POST',
+      headers: {
         'Content-Type': 'application/json',
-        'Content-Length': jsonString.length
-      });
+      },
+      body: jsonString,
+    });
 
-      const response = await fetch(`${aiApiBaseUrl}/analyze-vulnerabilities`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonString,
-      });
+    console.log('Response status:', response.status);
 
-      console.log('Response status:', response.status);
-      console.log('Response statusText:', response.statusText);
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (parseError) {
+        const errorText = await response.text();
+        console.error('Raw error response:', errorText);
+        errorData = { detail: errorText };
+      }
 
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-          console.error('AI API Error Response:', errorData);
-        } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
-          const errorText = await response.text();
-          console.error('Raw error response:', errorText);
-          errorData = { detail: errorText };
-        }
-
-        if (response.status === 422) {
-          console.error('=== 422 Validation Error Details ===');
-          
-          let detailMessage = '데이터 형식 검증 실패:\n';
-          if (errorData?.detail) {
-            if (Array.isArray(errorData.detail)) {
-              errorData.detail.forEach(err => {
-                console.error('Validation error:', err);
-                detailMessage += `\n• ${err.loc?.join('.')} 필드: ${err.msg}`;
-                if (err.input) {
-                  detailMessage += ` (입력값: ${JSON.stringify(err.input).substring(0, 100)})`;
-                }
-              });
-            } else {
-              detailMessage += `\n• ${errorData.detail}`;
-            }
+      // 에러 처리 (기존 로직 유지하되 새로운 에러 코드 추가)
+      if (response.status === 422) {
+        let detailMessage = '데이터 형식 검증 실패:\n';
+        if (errorData?.detail) {
+          if (Array.isArray(errorData.detail)) {
+            errorData.detail.forEach(err => {
+              detailMessage += `\n• ${err.loc?.join('.')} 필드: ${err.msg}`;
+            });
           } else {
-            detailMessage += '\n• 상세 오류 정보를 받을 수 없습니다.';
+            detailMessage += `\n• ${errorData.detail}`;
           }
-          
-          throw new Error(detailMessage);
-        } else if (response.status === 400) {
-          throw new Error(errorData?.detail || '잘못된 요청 데이터입니다');
-        } else if (response.status === 500) {
-          throw new Error('AI 서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-        } else {
-          throw new Error(errorData?.detail || `AI API 오류: ${response.status}`);
+        }
+        throw new Error(detailMessage);
+      }
+      
+      throw new Error(errorData?.detail || `AI API 오류: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // 🔥 새로운 응답 형식 처리
+    // Enterprise 모드 (비동기 처리)인 경우
+    if (result.job_id && result.status === 'submitted') {
+      console.log('✓ Enterprise 비동기 분석 시작:', {
+        job_id: result.job_id,
+        vulnerability_count: result.vulnerability_count,
+        estimated_batches: result.estimated_batches
+      });
+      
+      return {
+        ...result,
+        isAsync: true, // 비동기 처리 플래그
+        monitor_endpoints: result.monitor_endpoints
+      };
+    }
+    
+    // 동기 처리 결과 (기존 로직)
+    console.log('✓ 동기 AI 조치 방안 응답 받음:', {
+      totalVulnerabilities: result.analysis_summary?.total_vulnerabilities,
+      processedSuccessfully: result.analysis_summary?.processed_successfully,
+      fixesCount: result.vulnerability_fixes?.length
+    });
+
+    return result;
+  } catch (error) {
+    console.error('AI 조치 방안 요청 실패:', error);
+    if (error.message.includes('fetch')) {
+      throw new Error('AI 서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.');
+    }
+    throw error;
+  }
+}
+
+// 🔥 새로운 메서드들 추가
+
+// 작업 상태 확인
+async checkJobStatus(jobId, aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
+  try {
+    const response = await fetch(`${aiApiBaseUrl}/jobs/${jobId}/status`);
+    if (!response.ok) {
+      throw new Error(`작업 상태 확인 실패: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('작업 상태 확인 실패:', error);
+    throw error;
+  }
+}
+
+// 작업 결과 조회
+async getJobResult(jobId, aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
+  try {
+    const response = await fetch(`${aiApiBaseUrl}/jobs/${jobId}/result`);
+    if (!response.ok) {
+      if (response.status === 202) {
+        const data = await response.json();
+        return { 
+          isInProgress: true, 
+          progress: data.current_progress,
+          message: data.detail 
+        };
+      }
+      throw new Error(`작업 결과 조회 실패: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('작업 결과 조회 실패:', error);
+    throw error;
+  }
+}
+
+// 작업 취소
+async cancelJob(jobId, aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
+  try {
+    const response = await fetch(`${aiApiBaseUrl}/jobs/${jobId}/cancel`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      throw new Error(`작업 취소 실패: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('작업 취소 실패:', error);
+    throw error;
+  }
+}
+
+// 스트리밍 분석 (Server-Sent Events)
+async getAIRemediationStream(
+  configText, 
+  vulnerabilityReport, 
+  onProgress, 
+  onComplete, 
+  onError,
+  aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app',
+  options = {}
+) {
+  try {
+    const requestBody = {
+      original_config: configText,
+      vulnerability_report: vulnerabilityReport,
+      enable_streaming: true,
+      batch_size: options.batch_size || 4,
+      max_concurrent: options.max_concurrent || 3
+    };
+
+    const response = await fetch(`${aiApiBaseUrl}/stream-analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream'
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`스트리밍 요청 실패: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+      
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            
+            switch (data.type) {
+              case 'job_started':
+                onProgress?.(data);
+                break;
+              case 'progress_update':
+                onProgress?.(data);
+                break;
+              case 'batch_completed':
+                onProgress?.(data);
+                break;
+              case 'job_completed':
+                onComplete?.(data);
+                return;
+              case 'error':
+                onError?.(new Error(data.message));
+                return;
+            }
+          } catch (parseError) {
+            console.warn('스트리밍 데이터 파싱 실패:', parseError);
+          }
         }
       }
-
-      const result = await response.json();
-      console.log('✓ AI 조치 방안 응답 받음:', {
-        totalVulnerabilities: result.analysis_summary?.total_vulnerabilities,
-        processedSuccessfully: result.analysis_summary?.processed_successfully,
-        fixesCount: result.vulnerability_fixes?.length
-      });
-
-      console.log('=== End AI API Request Debug ===');
-      return result;
-    } catch (error) {
-      console.error('AI 조치 방안 요청 실패:', error);
-      if (error.message.includes('fetch')) {
-        throw new Error('AI 서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.');
-      }
-      throw error;
     }
+  } catch (error) {
+    console.error('스트리밍 분석 실패:', error);
+    onError?.(error);
   }
+}
 
-  // AI API 상태 확인
-  async checkAIApiHealth(aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
-    try {
-      const response = await fetch(`${aiApiBaseUrl}/health`);
-      if (!response.ok) {
-        throw new Error(`AI API 상태 확인 실패: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('AI API 상태 확인 실패:', error);
-      throw new Error('AI API 서버에 연결할 수 없습니다.');
+// AI API 상태 확인 (기존 메서드 유지)
+async checkAIApiHealth(aiApiBaseUrl = 'https://vulnerability-resolution-ai-production.up.railway.app') {
+  try {
+    const response = await fetch(`${aiApiBaseUrl}/health`);
+    if (!response.ok) {
+      throw new Error(`AI API 상태 확인 실패: ${response.status}`);
     }
+    return await response.json();
+  } catch (error) {
+    console.error('AI API 상태 확인 실패:', error);
+    throw new Error('AI API 서버에 연결할 수 없습니다.');
   }
+}
 
 // 취약점 데이터를 AI API 형식으로 변환
   transformToAIFormat(analysisResults, configText) {
     console.log('=== AI Format Transform Debug ===');
     console.log('analysisResults:', analysisResults);
     console.log('configText length:', configText?.length);
+
+    // 🔥 CIS 전용 디버깅 추가
+    const framework = analysisResults.metadata?.framework;
+    console.log('=== Framework Analysis Debug ===');
+    console.log('Framework:', framework);
+    
+    if (framework === 'CIS') {
+      console.log('=== CIS Specific Debug ===');
+      console.log('CIS vulnerabilities structure:', analysisResults.vulnerabilities);
+      console.log('CIS vulnerabilities length:', analysisResults.vulnerabilities?.length);
+      console.log('CIS summary:', analysisResults.summary);
+      console.log('CIS metadata:', analysisResults.metadata);
+      
+      // CIS 취약점 샘플 확인
+      if (analysisResults.vulnerabilities && analysisResults.vulnerabilities.length > 0) {
+        console.log('CIS Sample vulnerability:', analysisResults.vulnerabilities[0]);
+        console.log('CIS Sample severity:', analysisResults.vulnerabilities[0]?.severity);
+        console.log('CIS Sample category:', analysisResults.vulnerabilities[0]?.type || analysisResults.vulnerabilities[0]?.typeKo);
+        console.log('CIS Sample ruleId:', analysisResults.vulnerabilities[0]?.ruleId);
+      }
+    }
 
     // 기본 검증
     if (!analysisResults) {
@@ -866,40 +972,69 @@ const safeComplianceSummary = apiResult.complianceSummary ? {
         
     if (analysisResults.vulnerabilities && Array.isArray(analysisResults.vulnerabilities)) {
       vulnerabilities = analysisResults.vulnerabilities.map((vuln, index) => {
-        console.log(`Processing vulnerability ${index}:`, vuln);
+        console.log(`Processing vulnerability ${index} (${framework}):`, vuln);
         
-        // ID를 정수로 변환 (AI API 요구사항)
-// 수정된 코드 (올바름)
-let vulnerabilityId;
-if (vuln.id) {
-  vulnerabilityId = String(vuln.id);  // ✅ 문자열로 변환
-} else {
-  vulnerabilityId = `vuln_${index + 1}`;  // ✅ 문자열 형태로 생성
-}
+        // 🔥 CIS 전용 취약점 처리 로깅
+        if (framework === 'CIS') {
+          console.log(`CIS Vuln ${index} - Original:`, {
+            id: vuln.id,
+            severity: vuln.severity,
+            severityKo: vuln.severityKo,
+            type: vuln.type,
+            typeKo: vuln.typeKo,
+            ruleId: vuln.ruleId,
+            description: vuln.description?.substring(0, 100),
+            recommendation: vuln.recommendation?.substring(0, 100)
+          });
+        }
+        
+        // ID를 숫자 형태의 문자열로 변환
+        let vulnerabilityId;
+        if (vuln.id) {
+          // 문자열 ID에서 숫자 부분 추출 (예: "failed_1" -> "1")
+          const match = String(vuln.id).match(/\d+$/);
+          if (match) {
+            vulnerabilityId = match[0]; // 문자열로 유지하되 숫자 부분만
+          } else {
+            // 숫자가 없으면 index 기반으로 생성
+            vulnerabilityId = String(index + 1);
+          }
+        } else {
+          vulnerabilityId = String(index + 1);
+        }
 
-// ruleId는 문자열로 유지 (AI API에서 문자열 허용)
-let ruleIdValue;
-if (vuln.ruleId) {
-  ruleIdValue = String(vuln.ruleId);
-} else {
-  ruleIdValue = `rule_${index + 1}`;
-}
+        // ruleId는 문자열로 유지 (CIS는 특히 문자열 ID가 많음)
+        let ruleIdValue;
+        if (vuln.ruleId) {
+          ruleIdValue = String(vuln.ruleId);
+        } else {
+          ruleIdValue = `rule_${index + 1}`;
+        }
 
-return {
-  id: vulnerabilityId, // 🔥 정수로 변환 (AI API 요구사항)
-  severity: this.normalizeSeverity(vuln.severity || vuln.severityKo),
-  ruleId: ruleIdValue, // 문자열로 유지
-  description: vuln.description || '취약점 설명이 없습니다.',
-  type: vuln.type || vuln.typeKo || 'Security',
-  line: parseInt(vuln.line) || 0,
-  recommendation: vuln.recommendation || '권장사항이 없습니다.',
-  matchedText: vuln.matchedText || '',
-  framework: vuln.framework || analysisResults.metadata?.framework || 'Unknown'
-};
+        // 심각도 정규화 (CIS 전용 처리 추가)
+        const normalizedSeverity = this.normalizeSeverity(vuln.severity || vuln.severityKo, framework);
+
+        const transformedVuln = {
+          id: vulnerabilityId,
+          severity: normalizedSeverity,
+          ruleId: ruleIdValue,
+          description: vuln.description || '취약점 설명이 없습니다.',
+          type: vuln.type || vuln.typeKo || 'Security',
+          line: parseInt(vuln.line) || 0,
+          recommendation: vuln.recommendation || '권장사항이 없습니다.',
+          matchedText: vuln.matchedText || '',
+          framework: vuln.framework || analysisResults.metadata?.framework || 'Unknown'
+        };
+
+        // 🔥 CIS 변환 결과 로깅
+        if (framework === 'CIS') {
+          console.log(`CIS Vuln ${index} - Transformed:`, transformedVuln);
+        }
+
+        return transformedVuln;
       });
     } else {
       console.warn('No vulnerabilities found or vulnerabilities is not an array');
-      // 취약점이 없어도 AI API는 호출할 수 있도록 빈 배열 사용
       vulnerabilities = [];
     }
 
@@ -910,10 +1045,10 @@ return {
       framework: analysisResults.metadata?.framework || 'Unknown',
       deviceType: analysisResults.metadata?.deviceType || 'Unknown',
       scanDate: new Date().toISOString().split('T')[0],
-      totalLines: Math.max(0, parseInt(analysisResults.metadata?.totalLines) || 0), // 음수 방지
+      totalLines: Math.max(0, parseInt(analysisResults.metadata?.totalLines) || 0),
       engineVersion: analysisResults.metadata?.engineVersion || 'Unknown',
-      analysisTime: Math.max(0, parseFloat(analysisResults.metadata?.analysisTime) || 0), // 음수 방지
-      totalChecks: Math.max(0, parseInt(analysisResults.summary?.totalChecks) || 0), // 음수 방지
+      analysisTime: Math.max(0, parseFloat(analysisResults.metadata?.analysisTime) || 0),
+      totalChecks: Math.max(0, parseInt(analysisResults.summary?.totalChecks) || 0),
       timestamp: analysisResults.metadata?.timestamp || new Date().toISOString()
     };
 
@@ -937,39 +1072,58 @@ return {
     };
 
     console.log('Final AI format result:', {
-  config_length: result.original_config.length,
-  vulnerability_count: vulnerabilityReport.vulnerabilities.length,
-  metadata: vulnerabilityReport.metadata,
-  sample_vulnerability_ids: vulnerabilityReport.vulnerabilities.slice(0, 3).map(v => ({ 
-    id: v.id, 
-    type: typeof v.id,  // 이제 'number'가 나와야 함
-    originalId: v.originalId, // 디버깅용
-    ruleId: v.ruleId,
-    ruleIdType: typeof v.ruleId 
-  }))
-});
+      config_length: result.original_config.length,
+      vulnerability_count: vulnerabilityReport.vulnerabilities.length,
+      metadata: vulnerabilityReport.metadata,
+      sample_vulnerability_ids: vulnerabilityReport.vulnerabilities.slice(0, 3).map(v => ({ 
+        id: v.id, 
+        type: typeof v.id,
+        ruleId: v.ruleId,
+        ruleIdType: typeof v.ruleId 
+      }))
+    });
 
     console.log('=== End AI Format Transform Debug ===');
 
     return result;
   }
-    normalizeSeverity(severity) {
-    if (!severity) return 'Medium';
+    normalizeSeverity(severity, framework = null) {
+    console.log(`Normalizing severity: "${severity}" for framework: ${framework}`);
+    
+    if (!severity) {
+      console.log('No severity provided, defaulting to Medium');
+      return 'Medium';
+    }
     
     const severityMap = {
+      // 한국어 (KISA, NW)
       '상': 'High',
       '중': 'Medium', 
       '하': 'Low',
-      'Critical': 'High',
+      
+      // 영어 (CIS, NIST)
+      'Critical': 'High', // CIS Critical을 High로 매핑
       'High': 'High',
       'Medium': 'Medium',
       'Low': 'Low',
+      'Moderate': 'Medium',
+      
+      // 추가 한국어 변형
       '고위험': 'High',
       '중위험': 'Medium',
-      '저위험': 'Low'
+      '저위험': 'Low',
+      
+      // CIS 특화 처리
+      'CRITICAL': 'High',
+      'HIGH': 'High',
+      'MEDIUM': 'Medium',
+      'LOW': 'Low'
     };
 
-    return severityMap[severity] || 'Medium';
+    const normalized = severityMap[severity] || 'Medium';
+    console.log(`Severity "${severity}" normalized to "${normalized}"`);
+    
+    return normalized;
   }
 }
 

@@ -45,56 +45,163 @@ const AIRemediation = ({ aiResults, isLoading, onClose, onRetry }) => {
     return colors[severity] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">AI 조치 방안 생성 중</h3>
+ if (isLoading) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">AI 조치 방안 생성 중</h3>
+          
+          {/* 🔥 비동기/스트리밍 진행상황 표시 */}
+          {aiResults?.isAsync ? (
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                Enterprise 배치 처리로 {aiResults.vulnerability_count}개 취약점을 분석하고 있습니다
+              </p>
+              <div className="text-xs text-gray-500">
+                예상 배치 수: {aiResults.estimated_batches}개
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '30%'}}></div>
+              </div>
+            </div>
+          ) : (
             <p className="text-sm text-gray-600">
               인공지능이 맞춤형 보안 조치 방안을 분석하고 있습니다...
             </p>
-            <div className="mt-4 text-xs text-gray-500">
-              평균 처리 시간: 2-3분
-            </div>
+          )}
+          
+          <div className="mt-4 text-xs text-gray-500">
+            {aiResults?.isAsync ? '평균 처리 시간: 3-8분' : '평균 처리 시간: 3-8분'}
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (!aiResults) return null;
+// 🔥 비동기 작업 결과 처리 (기존 결과 표시 전에 추가)
+if (aiResults?.isAsync && !aiResults.analysis_summary && !aiResults.vulnerability_fixes) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Enterprise 분석 진행 중</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            작업 ID: {aiResults.job_id}<br/>
+            {aiResults.vulnerability_count}개 취약점을 {aiResults.estimated_batches}개 배치로 처리합니다
+          </p>
+          
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <div className="text-left space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>상태:</span>
+                <span className="font-medium text-blue-600">처리 중</span>
+              </div>
+              <div className="flex justify-between">
+                <span>모니터링:</span>
+                <span className="text-green-600">자동 갱신</span>
+              </div>
+              <div className="flex justify-between">
+                <span>예상 완료:</span>
+                <span className="text-gray-600">3-8분 후</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex space-x-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            >
+              백그라운드로 실행
+            </button>
+            <button
+              onClick={onRetry}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            >
+              새로고침
+            </button>
+          </div>
+          
+          <p className="text-xs text-gray-500 mt-3">
+            💡 백그라운드로 실행하면 분석이 완료될 때까지 다른 작업을 할 수 있습니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+  // 🔥 백그라운드 작업 완료 후 결과가 있는 경우에도 표시
+  if (!aiResults || (!aiResults.vulnerability_fixes && !aiResults.analysis_summary && !aiResults.isAsync)) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">NetSecure AI</h2>
+        <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+            NetSecure AI 조치 방안
+            {/* 🔥 모드 표시 추가 */}
+            {aiResults?.mode && (
+                <span className={`ml-3 inline-flex items-center px-2 py-1 text-sm font-medium rounded-full ${
+                aiResults.mode === 'Enterprise' 
+                    ? 'bg-purple-100 text-purple-800' 
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                {aiResults.mode === 'Enterprise' ? '🚀 Enterprise' : '⚡ Standard'}
+                </span>
+            )}
+            {/* 🔥 처리 상태 표시 */}
+            {aiResults?.isAsync && !aiResults.vulnerability_fixes && (
+                <span className="ml-2 inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                  ⏳ 처리중
+                </span>
+            )}
+            </h2>
             <p className="text-sm text-gray-600 mt-1">
-              {aiResults.analysis_summary?.device_type} • 
-              {aiResults.analysis_summary?.security_framework} • 
-              {aiResults.analysis_summary?.processed_successfully}/{aiResults.analysis_summary?.total_vulnerabilities}개 처리
+            {aiResults.analysis_summary?.device_type || aiResults.device_type || 'N/A'} • 
+            {aiResults.analysis_summary?.security_framework || aiResults.framework || 'N/A'} • 
+            {aiResults.analysis_summary?.processed_successfully || aiResults.vulnerability_fixes?.length || 0}/{aiResults.analysis_summary?.total_vulnerabilities || aiResults.vulnerability_count || 0}개 처리
+            {/* 🔥 처리 방식 안내 추가 */}
+            {aiResults?.mode && (
+                <span className="ml-2 text-gray-500">
+                ({aiResults.mode === 'Enterprise' ? 'Enterprise 배치 처리' : 'Standard 처리'})
+                </span>
+            )}
+            {/* 🔥 백그라운드 완료 안내 */}
+            {aiResults?.isAsync && aiResults.vulnerability_fixes && (
+                <span className="ml-2 text-green-600 font-medium">
+                ✅ 백그라운드 처리 완료
+                </span>
+            )}
             </p>
-          </div>
-          <div className="flex space-x-2">
+        </div>
+        <div className="flex space-x-2">
             <button
-              onClick={onRetry}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            onClick={onRetry}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
-              재분석
+            재분석
             </button>
             <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            </svg>
             </button>
-          </div>
+        </div>
         </div>
 
         {/* Tabs */}
@@ -220,15 +327,15 @@ const AIRemediation = ({ aiResults, isLoading, onClose, onRetry }) => {
 
           {selectedTab === 'config' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">수정된 전체 설정</h3>
                 <button
-                  onClick={downloadFixedConfig}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                    onClick={downloadFixedConfig}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
                 >
-                  설정 파일 다운로드
+                    설정 파일 다운로드
                 </button>
-              </div>
+                </div>
 
               {/* Config Differences */}
               {aiResults.config_differences && (
@@ -290,20 +397,56 @@ const AIRemediation = ({ aiResults, isLoading, onClose, onRetry }) => {
               )}
 
               {/* Complete Config */}
-              <div className="bg-gray-900 rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between p-3 bg-gray-800">
-                  <span className="text-sm font-medium text-gray-200">수정된 전체 설정 파일</span>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(aiResults.complete_fixed_config)}
-                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors duration-200"
-                  >
-                    복사
-                  </button>
-                </div>
-                <pre className="text-green-400 p-4 text-sm overflow-x-auto max-h-96">
-                  {aiResults.complete_fixed_config}
-                </pre>
+<div className="bg-gray-900 rounded-lg overflow-hidden">
+  <div className="flex items-center justify-between p-3 bg-gray-800">
+    <span className="text-sm font-medium text-gray-200">수정된 전체 설정 파일</span>
+    <button
+      onClick={() => {
+        if (aiResults.complete_fixed_config && aiResults.complete_fixed_config !== "Enterprise 배치 처리로 인해 생략") {
+          navigator.clipboard.writeText(aiResults.complete_fixed_config);
+        } else {
+          // 개별 fix_commands를 조합하여 설정 생성
+          const allCommands = aiResults.vulnerability_fixes
+            ?.flatMap(fix => fix.config_lines || fix.fix_commands || [])
+            .join('\n') || '';
+          navigator.clipboard.writeText(allCommands);
+        }
+      }}
+      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors duration-200"
+    >
+      복사
+    </button>
+  </div>
+  <pre className="text-green-400 p-4 text-sm overflow-x-auto max-h-96">
+    {aiResults.complete_fixed_config && 
+     aiResults.complete_fixed_config !== "Enterprise 배치 처리로 인해 생략" && 
+     aiResults.complete_fixed_config.length > 10 ? (
+      // 실제 설정 파일이 있는 경우
+      aiResults.complete_fixed_config
+    ) : (
+      // 설정 파일이 없거나 생략된 경우 개별 조치사항 표시
+      <div className="space-y-4">
+        <div className="text-yellow-400 mb-4">
+          # 수정된 설정 파일 (개별 조치사항 조합)<br />
+          # 10개이상 취약점 분석은 전체 config를 제공하지 않습니다.<br />
+          # 조치방안은 샘플이니 검증을 거친 후 적용하시기 바랍니다.
+        </div>
+        {aiResults.vulnerability_fixes?.map((fix, index) => (
+          <div key={index} className="border-l-2 border-blue-500 pl-4 mb-4">
+            <div className="text-blue-400 text-xs mb-2">
+              # {fix.rule_id}: {fix.title}
+            </div>
+            {(fix.config_lines || fix.fix_commands || []).map((line, lineIndex) => (
+              <div key={lineIndex} className="text-green-400">
+                {line}
               </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    )}
+  </pre>
+</div>
             </div>
           )}
 

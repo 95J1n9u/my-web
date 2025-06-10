@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { auth } from '../config/firebase';
 import { authService } from '../config/firebase';
 import TermsOfService from './TermsOfService';
 import PrivacyPolicy from './PrivacyPolicy';
 import SecurityLogger from '../utils/security-logger';
+
 
 const LoginModal = ({ onClose, onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -24,21 +24,28 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
-  
-  // 모달 고유 ID
+
+
+  // 비밀번호 강도 계산 함수
+const getPasswordStrength = (password) => {
+  let strength = 0;
+  if (password.length >= 9) strength++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+  if (/\d/.test(password)) strength++;
+  if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
+  return strength;
+};
+
+  // 고유한 ID 생성을 위한 prefix
   const modalId = `login-modal-${Date.now()}`;
 
-  // Firebase 연결 테스트 및 초기화
+  // Firebase 연결 테스트
   useEffect(() => {
     const testFirebaseConnection = async () => {
       try {
-        authService.init();
-        
         const result = await authService.testConnection();
         if (!result.connected) {
           console.warn('Firebase 연결 테스트 실패:', result.error);
-        } else {
-          console.log('✅ Firebase 연결 성공');
         }
       } catch (error) {
         console.error('Firebase 연결 테스트 중 오류:', error);
@@ -47,16 +54,6 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
     testFirebaseConnection();
   }, []);
-
-  // 비밀번호 강도 계산 함수
-  const getPasswordStrength = (password) => {
-    let strength = 0;
-    if (password.length >= 9) strength++;
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-    if (/\d/.test(password)) strength++;
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
-    return strength;
-  };
 
   const handleInputChange = e => {
     const { name, value } = e.target;
@@ -70,83 +67,6 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
         ...prev,
         [name]: '',
       }));
-    }
-  };
-
-  // 회원가입 함수 (SMS 인증 제거)
-  const handleSignup = async () => {
-    console.log('🔥 handleSignup 시작 (SMS 인증 제거됨)');
-    
-    // 기본 폼 검증
-    if (!validateForm()) {
-      console.log('🔥 폼 검증 실패');
-      return;
-    }
-
-    setIsLoading(true);
-    setLoadingStep('계정 생성 중...');
-    setErrors({}); // 기존 에러 초기화
-
-    try {
-      console.log('🔥 회원가입 시도:', {
-        email: formData.email,
-        displayName: formData.displayName
-      });
-
-      const result = await authService.signUpWithEmail(
-        formData.email,
-        formData.password,
-        formData.displayName.trim()
-      );
-
-      console.log('🔥 회원가입 결과:', result);
-
-      if (result.success) {
-        setLoadingStep('가입 완료!');
-        
-        if (result.requiresEmailVerification) {
-          console.log('🔥 이메일 인증 필요, 인증 화면으로 이동');
-          setVerificationEmail(formData.email);
-          setShowEmailVerification(true);
-          setLoadingStep('');
-        } else {
-          console.log('🔥 즉시 로그인 처리');
-          if (typeof onLoginSuccess === 'function') {
-            onLoginSuccess(result.user);
-          }
-          if (typeof onClose === 'function') {
-            onClose();
-          }
-        }
-      } else {
-        console.error('🔥 회원가입 실패:', result.error);
-        
-        setErrors({
-          submit: result.error || '회원가입 중 오류가 발생했습니다.',
-        });
-        
-        setIsLoading(false);
-        setLoadingStep('');
-        return;
-      }
-
-    } catch (error) {
-      console.error('🔥 회원가입 예외 발생:', error);
-      
-      let errorMessage = '회원가입 중 오류가 발생했습니다.';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setErrors({
-        submit: errorMessage,
-      });
-    } finally {
-      if (!showEmailVerification) {
-        setIsLoading(false);
-        setLoadingStep('');
-      }
     }
   };
 
@@ -169,19 +89,16 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
     // 회원가입 추가 검증
     if (!isLogin) {
-      // 이름 검증
       if (!formData.displayName || formData.displayName.trim().length < 2) {
-        newErrors.displayName = '닉네임은 2자 이상 입력해주세요.';
+        newErrors.displayName = '이름은 2자 이상 입력해주세요.';
       } else {
         const forbiddenWords = ['admin', '관리자', '운영자', 'administrator'];
         const lowerDisplayName = formData.displayName.toLowerCase();
 
         if (forbiddenWords.some(word => lowerDisplayName.includes(word))) {
-          newErrors.displayName = '사용할 수 없는 닉네임입니다.';
+          newErrors.displayName = '사용할 수 없는 이름입니다.';
         }
       }
-
-      // 비밀번호 확인 검증
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = '비밀번호 확인을 입력해주세요.';
       } else if (formData.password !== formData.confirmPassword) {
@@ -189,71 +106,64 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
       }
     }
 
-    console.log('폼 검증 결과:', newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+// 이메일 인증 재발송
+const handleResendVerification = async () => {
+  setResendLoading(true);
+  setErrors({});
 
-  // 이메일 인증 재발송
-  const handleResendVerification = async () => {
-    setResendLoading(true);
-    setErrors({});
-
-    try {
-      const result = await authService.resendEmailVerification();
-
-      if (result.success) {
-        setErrors({ verification: '인증 이메일이 재발송되었습니다. 이메일을 확인해주세요.' });
-      } else {
-        setErrors({ verification: result.error });
-      }
-    } catch (error) {
-      setErrors({ verification: '이메일 재발송 중 오류가 발생했습니다.' });
-    } finally {
-      setResendLoading(false);
+  try {
+    const result = await authService.resendEmailVerification();
+    
+    if (result.success) {
+      setErrors({ verification: '인증 이메일이 재발송되었습니다. 이메일을 확인해주세요.' });
+    } else {
+      setErrors({ verification: result.error });
     }
-  };
+  } catch (error) {
+    setErrors({ verification: '이메일 재발송 중 오류가 발생했습니다.' });
+  } finally {
+    setResendLoading(false);
+  }
+};
 
-  // 이메일 인증 상태 확인
-  const handleCheckVerification = async () => {
-    setLoadingStep('인증 상태 확인 중...');
-    setErrors({});
+// 이메일 인증 상태 확인
+const handleCheckVerification = async () => {
+  setLoadingStep('인증 상태 확인 중...');
+  setErrors({});
 
-    try {
-      const result = await authService.refreshEmailVerification();
-
-      if (result.success && result.emailVerified) {
-        setLoadingStep('인증 완료!');
-
-        const loginResult = await authService.signInWithEmail(formData.email, formData.password);
-
-        if (loginResult.success) {
-          if (typeof onLoginSuccess === 'function') {
-            onLoginSuccess(loginResult.user);
-          }
-          if (typeof onClose === 'function') {
-            onClose();
-          }
-        } else {
-          setErrors({ verification: loginResult.error });
+  try {
+    const result = await authService.refreshEmailVerification();
+    
+    if (result.success && result.emailVerified) {
+      setLoadingStep('인증 완료!');
+      
+      // 로그인 처리
+      const loginResult = await authService.signInWithEmail(formData.email, formData.password);
+      
+      if (loginResult.success) {
+        if (typeof onLoginSuccess === 'function') {
+          onLoginSuccess(loginResult.user);
+        }
+        if (typeof onClose === 'function') {
+          onClose();
         }
       } else {
-        setErrors({ verification: '아직 이메일 인증이 완료되지 않았습니다.' });
+        setErrors({ verification: loginResult.error });
       }
-    } catch (error) {
-      setErrors({ verification: '인증 상태 확인 중 오류가 발생했습니다.' });
-    } finally {
-      setLoadingStep('');
+    } else {
+      setErrors({ verification: '아직 이메일 인증이 완료되지 않았습니다.' });
     }
-  };
-
+  } catch (error) {
+    setErrors({ verification: '인증 상태 확인 중 오류가 발생했습니다.' });
+  } finally {
+    setLoadingStep('');
+  }
+};
   const handleSubmit = async e => {
     e.preventDefault();
-
-    if (!isLogin) {
-      await handleSignup();
-      return;
-    }
 
     if (!validateForm()) {
       return;
@@ -263,32 +173,49 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
     setErrors({});
     setLoadingStep('인증 처리 중...');
 
-    try {
-      const result = await authService.signInWithEmail(formData.email, formData.password);
+  try {
+    let result;
+    if (isLogin) {
+      result = await authService.signInWithEmail(formData.email, formData.password);
       SecurityLogger.logAuthAttempt('email', result.success);
+    } else {
+      result = await authService.signUpWithEmail(formData.email, formData.password, formData.displayName.trim());
+      SecurityLogger.logAuthAttempt('signup', result.success);
+    }
 
       if (result.success) {
         setLoadingStep('완료!');
         console.log('인증 성공:', result.user);
 
-        if (typeof onLoginSuccess === 'function') {
-          onLoginSuccess(result.user);
-        }
+        // 이메일 인증이 필요한 경우
+        if (result.requiresEmailVerification) {
+          setVerificationEmail(formData.email);
+          setShowEmailVerification(true);
+          setLoadingStep('');
+        } else {
+          // 콜백 함수가 존재하는지 확인 후 호출
+          if (typeof onLoginSuccess === 'function') {
+            onLoginSuccess(result.user);
+          } else {
+            console.error('onLoginSuccess is not a function:', onLoginSuccess);
+          }
 
-        if (typeof onClose === 'function') {
-          onClose();
+          if (typeof onClose === 'function') {
+            onClose();
+          }
         }
       } else {
-        setErrors({
-          submit: result.error,
-        });
-      }
-    } catch (error) {
-      SecurityLogger.logAuthAttempt('email', false, error);
-      setErrors({
-        submit: '인증 중 예기치 못한 오류가 발생했습니다.',
-      });
-    } finally {
+          console.error('인증 실패:', result);
+          setErrors({
+            submit: result.error,
+          });
+        }
+        } catch (error) {
+          SecurityLogger.logAuthAttempt(isLogin ? 'email' : 'signup', false, error);
+          setErrors({
+            submit: '인증 중 예기치 못한 오류가 발생했습니다.',
+          });
+        } finally {
       setIsLoading(false);
       setLoadingStep('');
     }
@@ -300,30 +227,35 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
     setLoadingStep('Google 로그인 중...');
 
     try {
-      const result = await authService.signInWithGoogle();
-      SecurityLogger.logAuthAttempt('google', result.success);
+    const result = await authService.signInWithGoogle();
+    SecurityLogger.logAuthAttempt('google', result.success);
 
       if (result.success) {
         setLoadingStep('완료!');
+        console.log('Google 로그인 성공:', result.user);
 
+        // 콜백 함수가 존재하는지 확인 후 호출
         if (typeof onLoginSuccess === 'function') {
           onLoginSuccess(result.user);
+        } else {
+          console.error('onLoginSuccess is not a function:', onLoginSuccess);
         }
 
         if (typeof onClose === 'function') {
           onClose();
         }
-      } else {
-        setErrors({
-          submit: result.error,
-        });
-      }
-    } catch (error) {
-      SecurityLogger.logAuthAttempt('google', false, error);
-      setErrors({
-        submit: 'Google 로그인 중 오류가 발생했습니다.',
-      });
-    } finally {
+        } else {
+          console.error('Google 로그인 실패:', result);
+          setErrors({
+            submit: result.error,
+          });
+        }
+        } catch (error) {
+          SecurityLogger.logAuthAttempt('google', false, error);
+          setErrors({
+            submit: 'Google 로그인 중 오류가 발생했습니다.',
+          });
+        } finally {
       setIsLoading(false);
       setLoadingStep('');
     }
@@ -355,10 +287,10 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
       } else {
         setErrors({ reset: result.error });
       }
-    } catch (error) {
-      console.error('Password reset error:', error);
-      setErrors({ reset: '비밀번호 재설정 중 오류가 발생했습니다.' });
-    } finally {
+      } catch (error) {
+        console.error('Password reset error:', error);
+        setErrors({ reset: '비밀번호 재설정 중 오류가 발생했습니다.' });
+      } finally {
       setIsLoading(false);
       setLoadingStep('');
     }
@@ -390,7 +322,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">
@@ -402,7 +334,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 hover:bg-gray-100 rounded-lg"
+            className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
             disabled={isLoading}
           >
             <svg
@@ -435,106 +367,12 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
             </div>
           )}
 
-          {showEmailVerification ? (
-            /* 이메일 인증 대기 화면 */
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">이메일 인증이 필요합니다</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  <strong className="text-blue-600">{verificationEmail}</strong>로 인증 이메일을 발송했습니다.
-                  <br />이메일을 확인하고 인증 링크를 클릭해주세요.
-                </p>
-              </div>
-
-              {errors.verification && (
-                <div className={`p-3 rounded-lg ${
-                  errors.verification.includes('재발송') || errors.verification.includes('확인')
-                    ? 'bg-green-50 border border-green-200'
-                    : 'bg-red-50 border border-red-200'
-                }`}>
-                  <p className={`text-sm ${
-                    errors.verification.includes('재발송') || errors.verification.includes('확인')
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  }`}>
-                    {errors.verification}
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <button
-                  onClick={handleCheckVerification}
-                  disabled={isLoading}
-                  className={`w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 ${
-                    isLoading ? 'opacity-50 cursor-not-allowed' : 'shadow-lg hover:shadow-xl'
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {loadingStep}
-                    </>
-                  ) : (
-                    '이메일 인증 완료 확인'
-                  )}
-                </button>
-
-                <button
-                  onClick={handleResendVerification}
-                  disabled={resendLoading}
-                  className={`w-full flex items-center justify-center px-4 py-3 text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-all duration-200 ${
-                    resendLoading ? 'opacity-50 cursor-not-allowed' : 'shadow-sm hover:shadow-md'
-                  }`}
-                >
-                  {resendLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                      재발송 중...
-                    </>
-                  ) : (
-                    '인증 이메일 재발송'
-                  )}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowEmailVerification(false);
-                    setVerificationEmail('');
-                    setErrors({});
-                    resetForm();
-                  }}
-                  className="w-full text-sm text-gray-600 hover:text-gray-800 transition-colors duration-200 py-2"
-                >
-                  다른 이메일로 다시 가입하기
-                </button>
-              </div>
-
-              <div className="text-xs text-gray-500 text-center space-y-1 bg-gray-50 p-3 rounded-lg">
-                <p>💡 <strong>도움말</strong></p>
-                <p>• 이메일이 오지 않았나요? 스팸함을 확인해보세요.</p>
-                <p>• 인증 링크는 24시간 동안 유효합니다.</p>
-                <p>• 이메일 인증 완료 후 "인증 완료 확인" 버튼을 클릭해주세요.</p>
-              </div>
-            </div>
-          ) : showForgotPassword ? (
+          {showForgotPassword ? (
             /* 비밀번호 재설정 폼 */
             <div className="space-y-4">
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-3a1 1 0 011-1h2.586l6.414-6.414z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">비밀번호를 잊으셨나요?</h3>
-                <p className="text-sm text-gray-600">
-                  가입하신 이메일 주소를 입력하시면 비밀번호 재설정 링크를 보내드립니다.
-                </p>
+              <div className="text-sm text-gray-600 mb-4">
+                가입하신 이메일 주소를 입력하시면 비밀번호 재설정 링크를
+                보내드립니다.
               </div>
 
               <div>
@@ -549,8 +387,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                   id={`${modalId}-resetEmail`}
                   value={resetEmail}
                   onChange={e => setResetEmail(e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                    errors.reset ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.reset ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="이메일을 입력하세요"
                   disabled={isLoading}
@@ -562,20 +400,15 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
               {resetMessage && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center">
-                    <svg className="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <p className="text-sm text-green-600">{resetMessage}</p>
-                  </div>
+                  <p className="text-sm text-green-600">{resetMessage}</p>
                 </div>
               )}
 
               <button
                 onClick={handlePasswordReset}
                 disabled={isLoading}
-                className={`w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-all duration-200 ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : 'shadow-lg hover:shadow-xl'
+                className={`w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 ${
+                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
                 {isLoading ? (
@@ -590,7 +423,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
               <button
                 onClick={toggleForgotPassword}
-                className="w-full text-sm text-gray-600 hover:text-gray-800 transition-colors duration-200 py-2"
+                className="w-full text-sm text-gray-600 hover:text-gray-800 transition-colors duration-200"
                 disabled={isLoading}
               >
                 로그인으로 돌아가기
@@ -604,11 +437,11 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                 <button
                   onClick={handleGoogleLogin}
                   disabled={isLoading}
-                  className={`w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200 ${
-                    isLoading ? 'opacity-50 cursor-not-allowed' : 'shadow-sm hover:shadow-md'
+                  className={`w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 ${
+                    isLoading ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
-                  <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -641,14 +474,13 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
               {/* 이메일/비밀번호 폼 */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 닉네임 입력 필드 (회원가입 모드에서만 표시) */}
                 {!isLogin && (
                   <div>
                     <label
                       htmlFor={`${modalId}-displayName`}
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
-                      닉네임 *
+                      이름 *
                     </label>
                     <input
                       type="text"
@@ -656,14 +488,18 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                       name="displayName"
                       value={formData.displayName}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                        errors.displayName ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.displayName
+                          ? 'border-red-500'
+                          : 'border-gray-300'
                       }`}
-                      placeholder="별명을 입력하세요"
+                      placeholder="이름을 입력하세요"
                       disabled={isLoading}
                     />
                     {errors.displayName && (
-                      <p className="mt-1 text-xs text-red-600">{errors.displayName}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.displayName}
+                      </p>
                     )}
                   </div>
                 )}
@@ -681,8 +517,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.email ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="이메일을 입력하세요"
                     disabled={isLoading}
@@ -705,8 +541,8 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                      errors.password ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.password ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="비밀번호를 입력하세요"
                     disabled={isLoading}
@@ -717,7 +553,6 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                     </p>
                   )}
                 </div>
-
                 {/* 비밀번호 강도 표시기 (회원가입 모드에서만) */}
                 {!isLogin && formData.password && (
                   <div className="mt-2">
@@ -744,12 +579,10 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                       })}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      9자 이상, 영문 대소문자, 숫자, 특수문자 포함 권장
+                      9자 이상, 영문 소문자, 숫자, 특수문자 포함필요
                     </div>
                   </div>
                 )}
-
-                {/* 비밀번호 확인 (회원가입 모드에서만) */}
                 {!isLogin && (
                   <div>
                     <label
@@ -764,8 +597,10 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                        errors.confirmPassword ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400'
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.confirmPassword
+                          ? 'border-red-500'
+                          : 'border-gray-300'
                       }`}
                       placeholder="비밀번호를 다시 입력하세요"
                       disabled={isLoading}
@@ -780,38 +615,25 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
 
                 {/* 에러 메시지 */}
                 {errors.submit && (
-                  <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-lg mb-4">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">
-                          {isLogin ? '로그인' : '회원가입'} 실패
-                        </h3>
-                        <p className="mt-1 text-sm text-red-700">
-                          {errors.submit}
-                        </p>
-                      </div>
-                    </div>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600 font-medium">
+                      {errors.submit}
+                    </p>
+                    {/* 상세 메시지 표시 제거 */}
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-white rounded-lg transition-all duration-200 ${
-                    isLoading 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl'
+                  className={`w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 ${
+                    isLoading ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
                   {isLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {loadingStep || '처리 중...'}
+                      처리 중...
                     </>
                   ) : isLogin ? (
                     '로그인'
@@ -826,7 +648,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
                 <div className="mt-4 text-center">
                   <button
                     onClick={toggleForgotPassword}
-                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200 hover:underline"
+                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200"
                     disabled={isLoading}
                   >
                     비밀번호를 잊으셨나요?
@@ -838,7 +660,7 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
               <div className="mt-6 text-center">
                 <button
                   onClick={toggleMode}
-                  className="text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200 hover:underline font-medium"
+                  className="text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {isLogin
@@ -849,9 +671,94 @@ const LoginModal = ({ onClose, onLoginSuccess }) => {
             </>
           )}
         </div>
+{/* 이메일 인증 대기 화면 */}
+{showEmailVerification && (
+  <div className="space-y-4">
+    <div className="text-center">
+      <svg className="w-16 h-16 text-blue-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+      <h3 className="text-lg font-medium text-gray-900 mb-2">이메일 인증이 필요합니다</h3>
+      <p className="text-sm text-gray-600 mb-4">
+        <strong>{verificationEmail}</strong>로 인증 이메일을 발송했습니다.
+        <br />이메일을 확인하고 인증 링크를 클릭해주세요.
+      </p>
+    </div>
 
+    {/* 에러/성공 메시지 */}
+    {errors.verification && (
+      <div className={`p-3 rounded-lg ${
+        errors.verification.includes('재발송') || errors.verification.includes('확인')
+          ? 'bg-green-50 border border-green-200'
+          : 'bg-red-50 border border-red-200'
+      }`}>
+        <p className={`text-sm ${
+          errors.verification.includes('재발송') || errors.verification.includes('확인')
+            ? 'text-green-600'
+            : 'text-red-600'
+        }`}>
+          {errors.verification}
+        </p>
+      </div>
+    )}
+
+    <div className="space-y-3">
+      <button
+        onClick={handleCheckVerification}
+        disabled={isLoading}
+        className={`w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 ${
+          isLoading ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+      >
+        {isLoading ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            {loadingStep}
+          </>
+        ) : (
+          '이메일 인증 완료 확인'
+        )}
+      </button>
+
+      <button
+        onClick={handleResendVerification}
+        disabled={resendLoading}
+        className={`w-full flex items-center justify-center px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-colors duration-200 ${
+          resendLoading ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+      >
+        {resendLoading ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+            재발송 중...
+          </>
+        ) : (
+          '인증 이메일 재발송'
+        )}
+      </button>
+
+      <button
+        onClick={() => {
+          setShowEmailVerification(false);
+          setVerificationEmail('');
+          setErrors({});
+          resetForm();
+        }}
+        className="w-full text-sm text-gray-600 hover:text-gray-800 transition-colors duration-200"
+      >
+        다른 이메일로 다시 가입하기
+      </button>
+    </div>
+
+    <div className="text-xs text-gray-500 text-center space-y-1">
+      <p>• 이메일이 오지 않았나요? 스팸함을 확인해보세요.</p>
+      <p>• 인증 링크는 24시간 동안 유효합니다.</p>
+      <p>• 이메일 인증 완료 후 "인증 완료 확인" 버튼을 클릭해주세요.</p>
+    </div>
+  </div>
+)}
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
           <p className="text-xs text-gray-500 text-center">
             {isLogin ? '로그인' : '회원가입'}하시면{' '}
             <button 
