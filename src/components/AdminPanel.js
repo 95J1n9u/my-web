@@ -73,7 +73,6 @@ const AdminPanel = ({ user }) => {
       setLoading(false);
     }
   };
-// AdminPanel.js에 추가할 AI 사용량 통계 컴포넌트
 const AIUsageStats = ({ user }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -81,9 +80,13 @@ const AIUsageStats = ({ user }) => {
   const loadStats = async () => {
     setLoading(true);
     try {
+      console.log('AI 사용량 통계 로드 시작:', user.uid); // 디버깅 로그 추가
       const result = await authService.getAIUsageStats(user.uid);
+      console.log('AI 사용량 통계 결과:', result); // 디버깅 로그 추가
       if (result.success) {
         setStats(result.stats);
+      } else {
+        console.error('AI 사용량 통계 로드 실패:', result.error);
       }
     } catch (error) {
       console.error('Failed to load AI usage stats:', error);
@@ -94,13 +97,45 @@ const AIUsageStats = ({ user }) => {
 
   React.useEffect(() => {
     loadStats();
-  }, []);
+  }, [user.uid]); // user.uid를 의존성으로 추가
 
   if (loading) {
-    return <div className="animate-pulse">로딩 중...</div>;
+    return (
+      <div className="animate-pulse bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="text-center">
+              <div className="h-8 bg-gray-200 rounded w-12 mx-auto mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-16 mx-auto"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          AI 조치 방안 사용량 통계
+        </h3>
+        <div className="text-center py-8">
+          <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <p className="text-gray-500 mb-4">AI 사용량 데이터를 불러올 수 없습니다.</p>
+          <button
+            onClick={loadStats}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -123,6 +158,19 @@ const AIUsageStats = ({ user }) => {
         <div className="text-center">
           <div className="text-2xl font-bold text-orange-600">{stats.avgUsagePerUser}</div>
           <div className="text-sm text-gray-600">평균 사용량</div>
+        </div>
+      </div>
+      
+      {/* 추가 통계 정보 */}
+      <div className="mt-6 pt-6 border-t border-gray-200">
+        <h4 className="text-md font-semibold text-gray-900 mb-3">사용량 분포</h4>
+        <div className="grid grid-cols-6 gap-2 text-sm">
+          {Object.entries(stats.usersByUsage || {}).map(([usage, count]) => (
+            <div key={usage} className="text-center p-2 bg-gray-50 rounded">
+              <div className="font-medium">{usage}회</div>
+              <div className="text-gray-600">{count}명</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -334,7 +382,9 @@ const AIUsageStats = ({ user }) => {
           >
             AI 사용량
           </button>
+          
         </nav>
+        
       </div>
 
       {/* Users Management Tab */}
@@ -471,37 +521,37 @@ const AIUsageStats = ({ user }) => {
       )}
       {/* AI Usage Tab - 새로 추가 */}
       {activeTab === 'ai-usage' && (
-        <div className="space-y-6">
-          
-          
-          {/* 추가 AI 사용량 상세 정보 */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              AI 사용량 관리 정책
-            </h3>
-            <div className="space-y-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">현재 정책</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• 일반 사용자: 하루 5회 제한</li>
-                  <li>• 관리자: 무제한 사용</li>
-                  <li>• 매일 자정에 사용량 자동 리셋</li>
-                  <li>• 사용량은 성공적인 AI 응답에만 차감</li>
-                </ul>
-              </div>
-              
-              <div className="p-4 bg-yellow-50 rounded-lg">
-                <h4 className="font-medium text-yellow-900 mb-2">향후 계획</h4>
-                <ul className="text-sm text-yellow-800 space-y-1">
-                  <li>• 결제 시스템 도입으로 사용량 확장</li>
-                  <li>• 프리미엄 플랜 제공</li>
-                  <li>• 기업용 무제한 플랜</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+  <div className="space-y-6">
+    <AIUsageStats user={user} />
+    
+    {/* 추가 AI 사용량 상세 정보 */}
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        AI 사용량 관리 정책
+      </h3>
+      <div className="space-y-4">
+        <div className="p-4 bg-blue-50 rounded-lg">
+          <h4 className="font-medium text-blue-900 mb-2">현재 정책</h4>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• 일반 사용자: 하루 20회 제한</li> {/* 5회에서 20회로 변경 */}
+            <li>• 관리자: 무제한 사용</li>
+            <li>• 매일 자정에 사용량 자동 리셋</li>
+            <li>• 사용량은 성공적인 AI 응답에만 차감</li>
+          </ul>
         </div>
-      )}
+        
+        <div className="p-4 bg-yellow-50 rounded-lg">
+          <h4 className="font-medium text-yellow-900 mb-2">향후 계획</h4>
+          <ul className="text-sm text-yellow-800 space-y-1">
+            <li>• 결제 시스템 도입으로 사용량 확장</li>
+            <li>• 프리미엄 플랜 제공</li>
+            <li>• 기업용 무제한 플랜</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       {/* Role Change Modal */}
       {showRoleModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

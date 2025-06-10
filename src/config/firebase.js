@@ -1882,7 +1882,7 @@ export const authService = {
       const defaultAiUsage = {
         lastUsedDate: null,
         usageCount: 0,
-        dailyLimit: 5,
+        dailyLimit: 20,
       };
 
       let aiUsage;
@@ -1964,7 +1964,7 @@ export const authService = {
       const defaultAiUsage = {
         lastUsedDate: null,
         usageCount: 0,
-        dailyLimit: 5,
+        dailyLimit: 20,
       };
 
       let currentAiUsage;
